@@ -14,8 +14,8 @@ private GitHub repository.
 
 ## Status
 
-Early development. Calculation engine, browser storage, settings and JSON export/import work; catalog and quote
-screens are next. See the [milestones](docs/implementation-plan.md#8-milestones).
+Early development. Settings, export/import, printers with machine cost per hour, and the filament catalog with
+purchases and price list work; the quote editor is next. See the [milestones](docs/implementation-plan.md#8-milestones).
 
 ## Features (planned)
 

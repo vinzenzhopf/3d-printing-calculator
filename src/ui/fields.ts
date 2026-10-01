@@ -101,3 +101,75 @@ export function switchField(
     </div>
   `;
 }
+
+export interface Option {
+  value: string;
+  label: string;
+}
+
+export function selectField(
+  label: string,
+  value: string,
+  options: Option[],
+  onChange: (value: string) => void,
+  opts: Pick<FieldOptions, 'help'> = {},
+): TemplateResult {
+  return wrap(label, cellSelect(value, options, onChange, false), opts);
+}
+
+// --- Compact controls for table cells (no label; pass aria-label via `title`). ---
+
+export function cellNumber(
+  value: number | null | undefined,
+  onChange: (value: number | null) => void,
+  opts: { step?: number; min?: number; title?: string; width?: string; allowEmpty?: boolean } = {},
+): TemplateResult {
+  return html`<input
+    type="number"
+    class="form-control form-control-sm"
+    style=${opts.width ? `width:${opts.width}` : nothing}
+    aria-label=${opts.title ?? nothing}
+    title=${opts.title ?? nothing}
+    .value=${value === null || value === undefined ? '' : String(value)}
+    step=${opts.step ?? 'any'}
+    min=${opts.min ?? nothing}
+    @change=${(e: Event) => {
+      const input = e.target as HTMLInputElement;
+      if (input.value === '' && opts.allowEmpty) return onChange(null);
+      if (input.checkValidity() && Number.isFinite(input.valueAsNumber)) onChange(input.valueAsNumber);
+      else input.value = value === null || value === undefined ? '' : String(value);
+    }}
+  />`;
+}
+
+export function cellText(
+  value: string | null | undefined,
+  onChange: (value: string) => void,
+  opts: { title?: string; placeholder?: string; type?: 'text' | 'date' | 'url' | 'color' } = {},
+): TemplateResult {
+  return html`<input
+    type=${opts.type ?? 'text'}
+    class=${opts.type === 'color' ? 'form-control form-control-sm form-control-color' : 'form-control form-control-sm'}
+    aria-label=${opts.title ?? nothing}
+    title=${opts.title ?? nothing}
+    placeholder=${opts.placeholder ?? nothing}
+    .value=${value ?? ''}
+    @change=${(e: Event) => onChange((e.target as HTMLInputElement).value.trim())}
+  />`;
+}
+
+export function cellSelect(
+  value: string,
+  options: Option[],
+  onChange: (value: string) => void,
+  small = true,
+  title?: string,
+): TemplateResult {
+  return html`<select
+    class=${small ? 'form-select form-select-sm' : 'form-select'}
+    aria-label=${title ?? nothing}
+    @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
+  >
+    ${options.map((o) => html`<option value=${o.value} ?selected=${o.value === value}>${o.label}</option>`)}
+  </select>`;
+}

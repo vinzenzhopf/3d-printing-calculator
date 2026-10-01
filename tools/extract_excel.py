@@ -418,6 +418,7 @@ def main():
                 "filamentId": fil["id"],
                 "legacyType": r["Type"],
                 "spoolType": "refill" if "Refill" in key[1] else None,
+                "packSizeKg": r["Weight"],
                 "packageWeightKg": r["Weight"] / n,
                 "quantity": r["Amount"],
                 "unitPrice": round(r["Price"] / n, 4),
@@ -602,7 +603,7 @@ def write_app_document(settings, materials, printers, product_lines, filaments, 
         "filaments": [pick(f, "id", "productLineId", "color", "finish", "link", "asin", "acquisition", "status")
                       for f in filaments],
         "purchases": [{"id": f"p{i:04d}", **pick(x, "date", "store", "description", "listingTitle", "asin",
-                                                 "filamentId", "spoolType", "packageWeightKg", "quantity",
+                                                 "filamentId", "spoolType", "packSizeKg", "packageWeightKg", "quantity",
                                                  "totalPrice", "totalKg")}
                       for i, x in enumerate(purchases, 1)],
         "machineCosts": [{"id": f"m{i:03d}", **pick(x, "date", "store", "description", "quantity", "total",

@@ -6,3 +6,8 @@ app-shell {
   display: block;
   min-height: 100vh;
 }
+
+/* Dropdowns in dense tables stay readable; tables scroll horizontally instead. */
+.table .form-select-sm {
+  min-width: 7.5rem;
+}

@@ -69,8 +69,11 @@ export interface Printer {
   name: string;
   technology: 'FDM' | 'resin';
   status: 'planned' | 'active' | 'retired';
+  /** Paid off: no further amortization, only wear parts and reserve count. */
   paidOff?: boolean;
   purchasePrice?: number;
+  /** Overrides the print hours per year derived from usage snapshots. */
+  hoursPerYearOverride?: number;
   toolheads: number | null;
   toolType: 'single' | 'mmu' | 'toolchanger' | null;
   /** Waste per print run (priming line, skirt), grams. */
@@ -110,6 +113,14 @@ export interface ProductLine {
   predecessorId?: Id;
   successorId?: Id;
   notes?: string;
+  /** Price list entry for all colors of this line (FI-11). */
+  manualPrice?: ManualPrice;
+}
+
+/** A hand-maintained price (FI-11), e.g. the current shop price. */
+export interface ManualPrice {
+  pricePerKg: number;
+  asOf: IsoDate;
 }
 
 export interface Filament {
@@ -122,6 +133,8 @@ export interface Filament {
   asin: string | null;
   acquisition: 'purchase' | 'gift' | 'sample';
   status: 'owned' | 'wishlist';
+  /** Price list entry for this color, overrides the product line's (FI-11). */
+  manualPrice?: ManualPrice;
 }
 
 export interface FilamentPurchase {
@@ -133,6 +146,8 @@ export interface FilamentPurchase {
   asin?: string | null;
   filamentId: Id;
   spoolType?: 'plastic' | 'cardboard' | 'refill' | null;
+  /** Size of the pack as sold (e.g. 4 for a 4 x 1 kg bundle split into colors); defaults to packageWeightKg. */
+  packSizeKg?: number;
   packageWeightKg: number;
   quantity: number;
   totalPrice: number;

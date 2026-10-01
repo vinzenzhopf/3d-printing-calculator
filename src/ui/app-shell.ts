@@ -5,6 +5,8 @@ import { store } from '../state/store-instance';
 import { HashRouter, ROUTES } from './router';
 import './pages/dashboard-page';
 import './pages/settings-page';
+import './pages/printers-page';
+import './pages/filaments-page';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -42,6 +44,10 @@ export class AppShell extends LitElement {
         return html`<dashboard-page></dashboard-page>`;
       case 'settings':
         return html`<settings-page></settings-page>`;
+      case 'printers':
+        return html`<printers-page></printers-page>`;
+      case 'filaments':
+        return html`<filaments-page .sub=${this.#router.sub}></filaments-page>`;
       default:
         return html`<div class="alert alert-secondary">
           <strong>${ROUTES.find((r) => r.path === this.#router.path)?.label}</strong> is not built yet.

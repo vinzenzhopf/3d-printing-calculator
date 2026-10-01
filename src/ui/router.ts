@@ -15,16 +15,18 @@ export const ROUTES: Route[] = [
   { path: 'settings', label: 'Settings' },
 ];
 
-/** Tracks `#/<path>` and re-renders the host on change. */
+/** Tracks `#/<path>/<sub>` and re-renders the host on change. */
 export class HashRouter implements ReactiveController {
-  path = currentPath();
+  path = '';
+  sub = '';
   #onHashChange = () => {
-    this.path = currentPath();
+    this.#read();
     this.host.requestUpdate();
   };
 
   constructor(private readonly host: ReactiveControllerHost) {
     host.addController(this);
+    this.#read();
   }
 
   hostConnected(): void {
@@ -34,9 +36,10 @@ export class HashRouter implements ReactiveController {
   hostDisconnected(): void {
     window.removeEventListener('hashchange', this.#onHashChange);
   }
-}
 
-function currentPath(): string {
-  const path = location.hash.replace(/^#\/?/, '').split('/')[0] ?? '';
-  return ROUTES.some((r) => r.path === path) ? path : 'dashboard';
+  #read(): void {
+    const [path = '', sub = ''] = location.hash.replace(/^#\/?/, '').split('/');
+    this.path = ROUTES.some((r) => r.path === path) ? path : 'dashboard';
+    this.sub = sub;
+  }
 }

@@ -12,6 +12,8 @@ export interface LotPrice {
   coveredKg: number;
   /** Oldest purchase date used. */
   oldestDate: IsoDate;
+  /** Newest purchase date used. */
+  newestDate: IsoDate;
   lotsUsed: number;
   /** false when all purchases together don't cover the need. */
   sufficient: boolean;
@@ -48,10 +50,17 @@ export function recentLotsPrice(
     used++;
     oldestDate = lot.date;
   }
-  return { pricePerKg: cost / kg, coveredKg: kg, oldestDate, lotsUsed: used, sufficient: kg >= opts.needKg };
+  return {
+    pricePerKg: cost / kg,
+    coveredKg: kg,
+    oldestDate,
+    newestDate: sorted[0]!.date,
+    lotsUsed: used,
+    sufficient: kg >= opts.needKg,
+  };
 }
 
-function addMonths(date: IsoDate, months: number): IsoDate {
+export function addMonths(date: IsoDate, months: number): IsoDate {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() + months);
   return d.toISOString().slice(0, 10);
