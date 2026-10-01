@@ -14,8 +14,9 @@ private GitHub repository.
 
 ## Status
 
-Early development. Settings, export/import, printers with machine cost per hour, and the filament catalog with
-purchases and price list work; the quote editor is next. See the [milestones](docs/implementation-plan.md#8-milestones).
+Early development. Quotes (multi-plate, multi-filament, pricing profiles, freezing, printable offer), customers,
+printers with machine cost per hour, the filament catalog with purchases and price list, and JSON export/import
+work. Next: spool stock and weigh-ins, then sync. See the [milestones](docs/implementation-plan.md#8-milestones).
 
 ## Features (planned)
 

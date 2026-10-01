@@ -11,3 +11,9 @@ app-shell {
 .table .form-select-sm {
   min-width: 7.5rem;
 }
+
+@media print {
+  body {
+    background: none;
+  }
+}

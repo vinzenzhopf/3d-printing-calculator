@@ -7,6 +7,8 @@ import './pages/dashboard-page';
 import './pages/settings-page';
 import './pages/printers-page';
 import './pages/filaments-page';
+import './pages/quotes-page';
+import './pages/customers-page';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -21,7 +23,7 @@ export class AppShell extends LitElement {
   override render() {
     const { status, error } = this.#store.store;
     return html`
-      <nav class="navbar navbar-expand bg-body border-bottom mb-3">
+      <nav class="navbar navbar-expand bg-body border-bottom mb-3 d-print-none">
         <div class="container">
           <a class="navbar-brand" href="#/dashboard">3D Print Calc</a>
           <ul class="navbar-nav me-auto flex-wrap">
@@ -46,6 +48,10 @@ export class AppShell extends LitElement {
         return html`<settings-page></settings-page>`;
       case 'printers':
         return html`<printers-page></printers-page>`;
+      case 'quotes':
+        return html`<quotes-page .sub=${this.#router.sub}></quotes-page>`;
+      case 'customers':
+        return html`<customers-page></customers-page>`;
       case 'filaments':
         return html`<filaments-page .sub=${this.#router.sub}></filaments-page>`;
       default:

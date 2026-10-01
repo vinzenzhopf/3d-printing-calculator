@@ -69,6 +69,8 @@ src/
     calc/machine-rate.ts        machine €/h per printer: investment, wear, shared, reserve (MC-3, MC-8)
     calc/price-resolution.ts    current €/kg: manual → own purchases → line purchases (FI-10, FI-11)
     orders.ts                   split a (bundle) order into purchases (FI-4)
+    calc/quote.ts               quote pricing: policy layer + order of operations (section 5)
+    quotes.ts                   numbering, creation with customer defaults, status + freezing (QC-5)
   state/
     app-store.ts                AppStore + StoreController (Lit reactive controller)
     store-instance.ts
@@ -84,6 +86,9 @@ src/
     pages/settings-page.ts      settings, business/VAT, export/import/reset
     pages/printers-page.ts      printers, power tables, hour counters, machine costs, reserves
     pages/filaments-page.ts     tabs: catalog, purchases, price list (pages/filaments/*)
+    pages/quotes-page.ts        quote list; quotes/quote-editor.ts, quotes/quote-offer.ts (print view)
+    pages/customers-page.ts     customers with defaults, quote history, revenue
+    pricing-profiles-editor.ts  pricing profiles (on the settings page)
 tests/
   legacy-replay.test.ts         all 30 Excel rows through the new engine (6 decimals)
   filament-price.test.ts
@@ -127,7 +132,8 @@ marked-up components → − customer discount → max(minimum price) → round 
 
 Finalized quotes store a **snapshot** of every resolved input (QC-5). Re-opening one never recalculates silently.
 
-Regression: `tests/legacy-replay.test.ts` reproduces all 30 Excel rows exactly (filament, energy, amortization, labor,
+Regression: `tests/legacy-replay.test.ts` reproduces all 30 Excel rows exactly through the formula layer, and
+`tests/quote.test.ts` reproduces them through the full quote pipeline (legacy settings expressed as app data) (filament, energy, amortization, labor,
 cost, price). Any engine change that breaks it is either a bug or a deliberate, documented model change.
 
 ## 6. Storage and sync
@@ -158,7 +164,7 @@ cost, price). Any engine change that breaks it is either a bug or a deliberate, 
 | **M0** ✔ | Skeleton: stack, store, browser adapter, router, dashboard, engine formula, FI-10 function, Excel replay, CI workflow | `npm test` 57/57, build + browser smoke test OK |
 | **M1** ✔ | Data foundation: full schema + migrations, export/import JSON, seed `document.json` import, settings page incl. business/VAT toggles (ST-1/2/3, PP-4) | own data imported. Export → import round-trips losslessly |
 | **M2** ✔ | Catalog: printers + power profiles + machine costs + reserve (MC-1/2/3/4/8), product lines with aliases, filaments, purchases with bundles/gifts (FI-1/2/4/4a), **price list page** (FI-10/11) | machine €/h and filament €/kg shown with their derivation, matching the requirements' examples |
-| **M3** | Quotes: plates (multi-printer, multi-filament, purge), extras, pricing profiles editor, policy layer, breakdown, freeze/snapshot, print view, customers (QC-1/2/4/5/6, PP-1/2/3, QO-1, JR-3) | an Excel quote re-entered by hand gives the same result with a legacy profile, and a plausible one with *Standard* |
+| **M3** ✔ | Quotes: plates (multi-printer, multi-filament, purge), extras, pricing profiles editor, policy layer, breakdown, freeze/snapshot, print view, customers (QC-1/2/4/5/6, PP-1/2/3, QO-1, JR-3) | an Excel quote re-entered by hand gives the same result with a legacy profile, and a plausible one with *Standard* |
 | **M4** | Stock: spools, ledger, weigh-in with tare presets, start at 0 (FI-5/6/6a/6b) | weigh-in on the phone works. Ledger sums are correct |
 | **M5** | Sync + offline: SyncService, GitHubAdapter, conflict dialog, PWA manifest + service worker (ST-6, NF-1) | two devices edit and sync via a private repo. App works offline |
 | **M6** | Extras: print log + stock deduction (JR-2), low stock (FI-7), price history (FI-8), part planner (QC-3), slicer file import (QC-8), DE translation, dashboard stats (JR-4) | as needed |

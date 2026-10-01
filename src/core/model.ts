@@ -5,6 +5,8 @@
  * never by display name.
  */
 
+import type { QuoteResult } from './calc/quote';
+
 export const SCHEMA_VERSION = 1;
 
 export type Id = string;
@@ -184,23 +186,39 @@ export interface PricingProfile {
   id: Id;
   name: string;
   includeLabor: boolean;
+  /** Machine wear, amortization and shared costs. */
   includeMachine: boolean;
   /** Share of the replacement-reserve rate charged, 0..n (1 = 100 %). */
   reserveShare: number;
+  /** On filament, energy and machine cost; 0.05 = +5 %. */
   failureAllowance: number;
   /** Markup on cost, 0.2 = +20 %. */
   markup: number;
+  /** Also apply the markup to pass-through items (hardware, packaging, shipping). */
+  markupOnItems?: boolean;
+  /** Overrides settings.hourlyRate. */
+  hourlyRate?: number;
+  /** Overrides settings.laborPerPlateMin. */
+  laborPerPlateMin?: number;
   minimumPrice: number;
+  /** Round the final price up to this step (0 = no rounding). */
   roundTo: number;
 }
 
 export interface Customer {
   id: Id;
   name: string;
+  /** Short tag, e.g. initials. */
   tag?: string;
+  /** family, friends, colleagues, business, ... */
   group?: string;
+  email?: string;
+  phone?: string;
+  messenger?: string;
+  address?: string;
   defaultPricingProfileId?: Id;
   discountPercent?: number;
+  paymentPreference?: string;
   notes?: string;
 }
 
@@ -215,10 +233,28 @@ export interface Plate {
   printerId: Id;
   printTimeMin: number;
   runs: number;
+  /** Parts produced per run, for the cost per part. */
+  partsPerRun?: number;
   filaments: PlateFilament[];
   /** Multi-material purge/wipe for the whole plate as reported by the slicer, grams. */
   purgeG?: number;
+  /** Used to estimate purge when purgeG is not given: changes × printer purge per change. */
+  filamentChanges?: number;
 }
+
+/** Additional quote positions (QC-4). */
+export interface QuoteExtra {
+  id: Id;
+  kind: 'labor' | 'item';
+  description: string;
+  /** Labor: minutes (charged with the hourly rate). */
+  minutes?: number;
+  /** Item: quantity × unit cost (hardware, packaging, shipping, fees). */
+  quantity?: number;
+  unitCost?: number;
+}
+
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'printing' | 'delivered' | 'paid' | 'rejected';
 
 export interface Quote {
   id: Id;
@@ -228,7 +264,17 @@ export interface Quote {
   /** Missing for quotes imported from the Excel sheets. */
   date?: IsoDate;
   pricingProfileId: Id;
-  status: 'draft' | 'sent' | 'accepted' | 'printing' | 'delivered' | 'paid' | 'rejected';
+  status: QuoteStatus;
   plates: Plate[];
+  extras?: QuoteExtra[];
+  discountPercent?: number;
   notes?: string;
+  /** Result frozen when the quote left draft status (QC-5). Shown instead of a live recalculation. */
+  snapshot?: QuoteSnapshot;
+}
+
+export interface QuoteSnapshot {
+  frozenAt: string;
+  /** The full calculation result at that time, incl. the filament prices used. */
+  result: QuoteResult;
 }
