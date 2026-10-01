@@ -60,6 +60,8 @@ src/
   core/
     model.ts                    AppDocument and all entity types (schemaVersion 1)
     document.ts                 empty document + default pricing profiles (PP-2)
+    migrations.ts               loadDocument: version check, migration chain, defaults, reference warnings
+    transfer.ts                 export/import (JSON), summaries
     duration.ts                 "7:23" / "7h23m" / "31:05" parsing and formatting
     calc/plate-cost.ts          cost formula per plate (filament, energy, machine, labor)
     calc/filament-price.ts      "recent lots covering the need" (FI-10)
@@ -74,7 +76,9 @@ src/
   ui/
     app-shell.ts                navbar, status badge, page switch
     router.ts                   hash routing (#/quotes ...), so no 404 tricks on GitHub Pages
+    fields.ts                   Bootstrap form-field template helpers
     pages/dashboard-page.ts
+    pages/settings-page.ts      settings, business/VAT, export/import/reset
 tests/
   legacy-replay.test.ts         all 30 Excel rows through the new engine (6 decimals)
   filament-price.test.ts
@@ -93,8 +97,9 @@ tools/extract_excel.py          Excel → data/seed/*.json (private) + test fixt
   Import refuses documents from a newer app version.
 - Money is stored as plain numbers (EUR) and only rounded for display and in final pricing (profile rounding).
   Dates are ISO `YYYY-MM-DD`, timestamps ISO 8601.
-- Seed data: `tools/extract_excel.py` will additionally write `data/seed/document.json` in AppDocument format.
-  Importing it in the app is the go-live step for your own data (M1).
+- Seed data: `tools/extract_excel.py` also writes `data/seed/document.json` in AppDocument format. Importing it
+  (Settings → Import data) is the go-live step for the original Excel data. Imported Excel quotes keep their Excel
+  totals in the notes and get the *Standard* or *Friends & family* profile depending on whether a markup was applied.
 
 ## 5. Calculation engine
 
@@ -146,7 +151,7 @@ cost, price). Any engine change that breaks it is either a bug or a deliberate, 
 | # | Scope (requirement ids) | Done when |
 |---|---|---|
 | **M0** ✔ | Skeleton: stack, store, browser adapter, router, dashboard, engine formula, FI-10 function, Excel replay, CI workflow | `npm test` 57/57, build + browser smoke test OK |
-| **M1** | Data foundation: full schema + migrations, export/import JSON, seed `document.json` import, settings page incl. business/VAT toggles (ST-1/2/3, PP-4) | own data imported. Export → import round-trips losslessly |
+| **M1** ✔ | Data foundation: full schema + migrations, export/import JSON, seed `document.json` import, settings page incl. business/VAT toggles (ST-1/2/3, PP-4) | own data imported. Export → import round-trips losslessly |
 | **M2** | Catalog: printers + power profiles + machine costs + reserve (MC-1/2/3/4/8), product lines with aliases, filaments, purchases with bundles/gifts (FI-1/2/4/4a), **price list page** (FI-10/11) | machine €/h and filament €/kg shown with their derivation, matching the requirements' examples |
 | **M3** | Quotes: plates (multi-printer, multi-filament, purge), extras, pricing profiles editor, policy layer, breakdown, freeze/snapshot, print view, customers (QC-1/2/4/5/6, PP-1/2/3, QO-1, JR-3) | an Excel quote re-entered by hand gives the same result with a legacy profile, and a plausible one with *Standard* |
 | **M4** | Stock: spools, ledger, weigh-in with tare presets, start at 0 (FI-5/6/6a/6b) | weigh-in on the phone works. Ledger sums are correct |

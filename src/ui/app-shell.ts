@@ -4,6 +4,7 @@ import { StoreController } from '../state/app-store';
 import { store } from '../state/store-instance';
 import { HashRouter, ROUTES } from './router';
 import './pages/dashboard-page';
+import './pages/settings-page';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -39,6 +40,8 @@ export class AppShell extends LitElement {
     switch (this.#router.path) {
       case 'dashboard':
         return html`<dashboard-page></dashboard-page>`;
+      case 'settings':
+        return html`<settings-page></settings-page>`;
       default:
         return html`<div class="alert alert-secondary">
           <strong>${ROUTES.find((r) => r.path === this.#router.path)?.label}</strong> is not built yet.

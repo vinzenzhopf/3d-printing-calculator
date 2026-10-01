@@ -527,6 +527,7 @@ def main():
     }])
     dump("quotes.json", quotes)
     write_legacy_fixture(settings, mk3, filaments, quotes)
+    write_app_document(settings, materials, printers, product_lines, filaments, purchases, machine, quotes)
     print("purchases flagged for review:", sum(1 for p in purchases if "review" in p))
 
 
@@ -570,6 +571,67 @@ def write_legacy_fixture(settings, printer, filaments, quotes):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(fixture, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {out.relative_to(ROOT)}: {len(items)} items")
+
+
+def pick(d, *keys):
+    return {k: d[k] for k in keys if k in d}
+
+
+def write_app_document(settings, materials, printers, product_lines, filaments, purchases, machine, quotes):
+    """data/seed/document.json in the app's AppDocument format (schema 1), ready for Import.
+
+    Pricing profiles and unset settings are filled with defaults by the app on import.
+    """
+    plans = json.loads((OUT / "planned-investments.json").read_text(encoding="utf-8"))
+    for pr in printers:
+        for key in ("purgeWastePerPlateG", "purgePerFilamentChangeG", "firstHourPhaseMin"):
+            pr.setdefault(key, None)
+    doc = {
+        "schemaVersion": 1,
+        "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "settings": {
+            "currency": settings["currency"],
+            "energyPricePerKwh": settings["energyPricePerKwh"],
+            "hourlyRate": settings["hourlyRate"],
+            "laborPerPlateMin": settings["laborPerPlateMin"],
+            "filamentPriceWindowMonths": 12,
+        },
+        "materialProfiles": materials,
+        "printers": printers,
+        "productLines": product_lines,
+        "filaments": [pick(f, "id", "productLineId", "color", "finish", "link", "asin", "acquisition", "status")
+                      for f in filaments],
+        "purchases": [{"id": f"p{i:04d}", **pick(x, "date", "store", "description", "listingTitle", "asin",
+                                                 "filamentId", "spoolType", "packageWeightKg", "quantity",
+                                                 "totalPrice", "totalKg")}
+                      for i, x in enumerate(purchases, 1)],
+        "machineCosts": [{"id": f"m{i:03d}", **pick(x, "date", "store", "description", "quantity", "total",
+                                                    "amortizationYears", "kind", "printerId")}
+                         for i, x in enumerate(machine, 1)],
+        "plannedInvestments": plans,
+        "customers": [],
+        "quotes": [{
+            "id": f"q{i:03d}",
+            "number": i,
+            "title": q["title"],
+            "pricingProfileId": "standard" if any(it["markup"]["mode"] != "off" for it in q["items"])
+                                else "friends-family",
+            "status": "delivered",
+            "notes": f"Imported from Excel sheet '{q['legacySheet']}'. Excel totals: cost "
+                     f"{q['_legacyComputed']['costPrice']:.2f} EUR, price {q['_legacyComputed']['price']:.2f} EUR.",
+            "plates": [{
+                "id": f"q{i:03d}-{j}",
+                "name": it["name"],
+                "printerId": it["printerId"],
+                "printTimeMin": it["printTimeMin"],
+                "runs": it["runs"],
+                "filaments": it["filaments"],
+            } for j, it in enumerate(q["items"], 1)],
+        } for i, q in enumerate(quotes, 1)],
+    }
+    out = OUT / "document.json"
+    out.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {out.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

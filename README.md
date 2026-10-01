@@ -14,8 +14,8 @@ private GitHub repository.
 
 ## Status
 
-Early development. The calculation engine and storage layer exist; the UI is a skeleton. See the
-[milestones](docs/implementation-plan.md#8-milestones).
+Early development. Calculation engine, browser storage, settings and JSON export/import work; catalog and quote
+screens are next. See the [milestones](docs/implementation-plan.md#8-milestones).
 
 ## Features (planned)
 

@@ -34,8 +34,19 @@ export interface Settings {
   laborPerPlateMin: number;
   /** Months of purchases that always count for the current filament price (FI-10). */
   filamentPriceWindowMonths: number;
+  /** Business mode shows business details and numbering on quotes (PP-4). */
   businessMode: boolean;
-  vat: { enabled: boolean; ratePercent: number; pricesIncludeVat: boolean; note?: string };
+  business: { name: string; address: string; email: string };
+  vat: VatSettings;
+}
+
+export interface VatSettings {
+  enabled: boolean;
+  ratePercent: number;
+  /** Prices are entered/shown gross (incl. VAT) instead of net. */
+  pricesIncludeVat: boolean;
+  /** Printed on quotes when VAT is off, e.g. a small-business notice. */
+  noVatNote: string;
 }
 
 export type BaseMaterial = 'PLA' | 'PETG' | 'ABS' | 'ASA' | 'TPU' | 'Other';
@@ -70,6 +81,21 @@ export interface Printer {
   firstHourPhaseMin: number | null;
   /** Keyed by MaterialProfile id. */
   powerProfiles: Record<Id, PowerProfile>;
+  usageStats?: UsageSnapshot[];
+}
+
+/** A print-hour counter reading, e.g. from OctoPrint or the printer's statistics menu (MC-4). */
+export interface UsageSnapshot {
+  source: string;
+  asOf: IsoDate;
+  /** Start of the counted period; null = printer lifetime. */
+  since: IsoDate | null;
+  printHours: number;
+  printHoursFinished?: number;
+  prints?: number;
+  printsFinished?: number;
+  filamentUsedM?: number;
+  reliability?: string;
 }
 
 export interface ProductLine {
@@ -184,7 +210,8 @@ export interface Quote {
   number: number;
   title: string;
   customerId?: Id;
-  date: IsoDate;
+  /** Missing for quotes imported from the Excel sheets. */
+  date?: IsoDate;
   pricingProfileId: Id;
   status: 'draft' | 'sent' | 'accepted' | 'printing' | 'delivered' | 'paid' | 'rejected';
   plates: Plate[];
