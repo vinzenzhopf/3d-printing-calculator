@@ -1,0 +1,6 @@
+# Real data never goes into the public repo (tests/fixtures holds an anonymized extract)
+data/
+*.xlsx
+
+node_modules/
+dist/

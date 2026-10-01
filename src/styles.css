@@ -1,0 +1,8 @@
+body {
+  background: var(--bs-tertiary-bg);
+}
+
+app-shell {
+  display: block;
+  min-height: 100vh;
+}

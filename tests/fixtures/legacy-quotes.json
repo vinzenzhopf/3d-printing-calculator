@@ -1,0 +1,884 @@
+{
+  "source": "3DPrintingCalc.xlsx, extracted by tools/extract_excel.py",
+  "settings": {
+    "energyPricePerKwh": 0.3,
+    "purgeWastePerPlateG": 10,
+    "laborPerPlateMin": 10,
+    "hourlyRate": 15,
+    "firstHourPhaseMin": 60,
+    "defaultMarkup": 0.2,
+    "amortizationPerHour": 0.08519268707482995
+  },
+  "items": [
+    {
+      "quote": 1,
+      "name": "Brio Tracks 13stk",
+      "printTimeMin": 443,
+      "runs": 1,
+      "weightG": 190,
+      "pricePerKg": 19.09,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 3.818,
+        "energyWh": 605.6666666666666,
+        "powerCost": 0.18169999999999997,
+        "amortization": 0.6290060062358278,
+        "labor": 2.5,
+        "costPrice": 7.128706006235827,
+        "price": 8.554447207482992
+      }
+    },
+    {
+      "quote": 2,
+      "name": "Brio Tracks 13stk",
+      "printTimeMin": 443,
+      "runs": 1,
+      "weightG": 190,
+      "pricePerKg": 19.09,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 3.818,
+        "energyWh": 605.6666666666666,
+        "powerCost": 0.18169999999999997,
+        "amortization": 0.6290060062358278,
+        "labor": 2.5,
+        "costPrice": 7.128706006235827,
+        "price": 8.554447207482992
+      }
+    },
+    {
+      "quote": 3,
+      "name": "Gridfinity Ebene 4x5",
+      "printTimeMin": 594,
+      "runs": 4,
+      "weightG": 181.94,
+      "pricePerKg": 15.996,
+      "power": {
+        "heatupMin": 5,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 130,
+        "powerFollowingHoursW": 120
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 12.28108896,
+        "energyWh": 4858.666666666666,
+        "powerCost": 1.4575999999999998,
+        "amortization": 3.3736304081632658,
+        "labor": 0,
+        "costPrice": 17.112319368163266,
+        "price": 17.112319368163266
+      }
+    },
+    {
+      "quote": 3,
+      "name": "Gridfinity Ebene 4x3",
+      "printTimeMin": 361,
+      "runs": 2,
+      "weightG": 110.29,
+      "pricePerKg": 15.996,
+      "power": {
+        "heatupMin": 5,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 130,
+        "powerFollowingHoursW": 120
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 3.8483176800000005,
+        "energyWh": 1497.3333333333333,
+        "powerCost": 0.44919999999999993,
+        "amortization": 1.0251520011337871,
+        "labor": 0,
+        "costPrice": 5.322669681133787,
+        "price": 5.322669681133787
+      }
+    },
+    {
+      "quote": 3,
+      "name": "Gridfinity Tray Grip 2x",
+      "printTimeMin": 152,
+      "runs": 1,
+      "weightG": 74.51,
+      "pricePerKg": 22.99,
+      "power": {
+        "heatupMin": 5,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 130,
+        "powerFollowingHoursW": 120
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 1.9428849,
+        "energyWh": 330.66666666666663,
+        "powerCost": 0.09919999999999998,
+        "amortization": 0.21582147392290255,
+        "labor": 0,
+        "costPrice": 2.2579063739229026,
+        "price": 2.2579063739229026
+      }
+    },
+    {
+      "quote": 3,
+      "name": "Plain Bins",
+      "printTimeMin": 702,
+      "runs": 5,
+      "weightG": 249.82,
+      "pricePerKg": 14.457166666666666,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 18.781305216666663,
+        "energyWh": 4755,
+        "powerCost": 1.4264999999999999,
+        "amortization": 4.983772193877552,
+        "labor": 0,
+        "costPrice": 25.191577410544216,
+        "price": 25.191577410544216
+      }
+    },
+    {
+      "quote": 4,
+      "name": "Wasser Adapter unten",
+      "printTimeMin": 227,
+      "runs": 1,
+      "weightG": 30,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 0.617449275362319,
+        "energyWh": 317.66666666666663,
+        "powerCost": 0.0953,
+        "amortization": 0.32231233276643995,
+        "labor": 2.5,
+        "costPrice": 3.5350616081287587,
+        "price": 4.24207392975451
+      }
+    },
+    {
+      "quote": 4,
+      "name": "Wasser Rest",
+      "printTimeMin": 510,
+      "runs": 1,
+      "weightG": 90,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.5436231884057974,
+        "energyWh": 695,
+        "powerCost": 0.2085,
+        "amortization": 0.7241378401360545,
+        "labor": 2.5,
+        "costPrice": 4.9762610285418525,
+        "price": 5.971513234250223
+      }
+    },
+    {
+      "quote": 4,
+      "name": "Schaukel Dingens",
+      "printTimeMin": 323,
+      "runs": 2,
+      "weightG": 45,
+      "pricePerKg": 22.99,
+      "power": {
+        "heatupMin": 5,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 130,
+        "powerFollowingHoursW": 120
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 2.5288999999999997,
+        "energyWh": 1345.3333333333333,
+        "powerCost": 0.40359999999999996,
+        "amortization": 0.9172412641723359,
+        "labor": 5,
+        "costPrice": 8.849741264172335,
+        "price": 10.619689517006803
+      }
+    },
+    {
+      "quote": 4,
+      "name": "Zahnrad",
+      "printTimeMin": 110,
+      "runs": 1,
+      "weightG": 15.47,
+      "pricePerKg": 32.65333333333333,
+      "power": {
+        "heatupMin": 5,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 135,
+        "powerFollowingHoursW": 125
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 0.8316803999999999,
+        "energyWh": 255.83333333333334,
+        "powerCost": 0.07675,
+        "amortization": 0.1561865929705216,
+        "labor": 2.5,
+        "costPrice": 3.5646169929705214,
+        "price": 4.277540391564625
+      }
+    },
+    {
+      "quote": 5,
+      "name": "GF Plain Bins Bed #8",
+      "printTimeMin": 402,
+      "runs": 3,
+      "weightG": 221.29,
+      "pricePerKg": 14.457166666666666,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 10.031394234999999,
+        "energyWh": 1653,
+        "powerCost": 0.4959,
+        "amortization": 1.7123730102040822,
+        "labor": 0,
+        "costPrice": 12.239667245204082,
+        "price": 12.239667245204082
+      }
+    },
+    {
+      "quote": 5,
+      "name": "GF Plain Bins Bed #4",
+      "printTimeMin": 504,
+      "runs": 5,
+      "weightG": 269.89,
+      "pricePerKg": 14.457166666666666,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 20.232081891666663,
+        "energyWh": 3434.9999999999995,
+        "powerCost": 1.0304999999999997,
+        "amortization": 3.5780928571428574,
+        "labor": 0,
+        "costPrice": 24.84067474880952,
+        "price": 24.84067474880952
+      }
+    },
+    {
+      "quote": 6,
+      "name": "Office Hangers",
+      "printTimeMin": 370,
+      "runs": 1,
+      "weightG": 159,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 2.6087231884057975,
+        "energyWh": 508.33333333333326,
+        "powerCost": 0.1525,
+        "amortization": 0.525354903628118,
+        "labor": 2.5,
+        "costPrice": 5.786578092033915,
+        "price": 6.943893710440698
+      }
+    },
+    {
+      "quote": 6,
+      "name": "Dishwasher Plate",
+      "printTimeMin": 45,
+      "runs": 2,
+      "weightG": 30,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.234898550724638,
+        "energyWh": 147.5,
+        "powerCost": 0.04425,
+        "amortization": 0.12778903061224492,
+        "labor": 5,
+        "costPrice": 6.406937581336883,
+        "price": 7.688325097604259
+      }
+    },
+    {
+      "quote": 7,
+      "name": "Rampe 65 x 150 x 1100 mm Mittelteil",
+      "printTimeMin": 563,
+      "runs": 4,
+      "weightG": 337.4,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 21.450187826086957,
+        "energyWh": 3062.6666666666665,
+        "powerCost": 0.9187999999999998,
+        "amortization": 3.1975655215419505,
+        "labor": 0,
+        "costPrice": 25.566553347628908,
+        "price": 25.566553347628908
+      }
+    },
+    {
+      "quote": 7,
+      "name": "Rampe 65 x 150 x 1100 mm Links",
+      "printTimeMin": 344,
+      "runs": 1,
+      "weightG": 201.56,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 3.2656892173913046,
+        "energyWh": 473.66666666666674,
+        "powerCost": 0.1421,
+        "amortization": 0.4884380725623584,
+        "labor": 0,
+        "costPrice": 3.896227289953663,
+        "price": 3.896227289953663
+      }
+    },
+    {
+      "quote": 7,
+      "name": "Rampe 65 x 150 x 1100 mm Rechts",
+      "printTimeMin": 382,
+      "runs": 1,
+      "weightG": 226.05,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 3.6437225362318846,
+        "energyWh": 524.3333333333334,
+        "powerCost": 0.1573,
+        "amortization": 0.5423934410430841,
+        "labor": 0,
+        "costPrice": 4.343415977274969,
+        "price": 4.343415977274969
+      }
+    },
+    {
+      "quote": 7,
+      "name": "Rampe 70 x 150 x 950 mm Mitte",
+      "printTimeMin": 598,
+      "runs": 4,
+      "weightG": 358.16,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 22.732012521739136,
+        "energyWh": 3249.3333333333335,
+        "powerCost": 0.9748,
+        "amortization": 3.3963484580498875,
+        "labor": 0,
+        "costPrice": 27.103160979789024,
+        "price": 27.103160979789024
+      }
+    },
+    {
+      "quote": 7,
+      "name": "Rampe 70 x 150 x 950 mm Links",
+      "printTimeMin": 436,
+      "runs": 1,
+      "weightG": 259.11,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 4.154044362318841,
+        "energyWh": 596.3333333333333,
+        "powerCost": 0.17889999999999998,
+        "amortization": 0.6190668594104309,
+        "labor": 0,
+        "costPrice": 4.952011221729272,
+        "price": 4.952011221729272
+      }
+    },
+    {
+      "quote": 7,
+      "name": "Rampe 70 x 150 x 950 mm Rechts",
+      "printTimeMin": 483,
+      "runs": 1,
+      "weightG": 289.37,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "off"
+      },
+      "expected": {
+        "filamentCost": 4.621144739130436,
+        "energyWh": 658.9999999999999,
+        "powerCost": 0.19769999999999996,
+        "amortization": 0.685801130952381,
+        "labor": 0,
+        "costPrice": 5.504645870082817,
+        "price": 5.504645870082817
+      }
+    },
+    {
+      "quote": 8,
+      "name": "Sides",
+      "printTimeMin": 92,
+      "runs": 1,
+      "weightG": 31.25,
+      "pricePerKg": 24.47422680412371,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "default"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.0095618556701031,
+        "energyWh": 137.66666666666666,
+        "powerCost": 0.041299999999999996,
+        "amortization": 0.13062878684807258,
+        "labor": 2.5,
+        "costPrice": 3.6814906425181757,
+        "price": 4.417788771021811
+      }
+    },
+    {
+      "quote": 8,
+      "name": "Sides 2",
+      "printTimeMin": 150,
+      "runs": 1,
+      "weightG": 59.8,
+      "pricePerKg": 24.47422680412371,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.708301030927835,
+        "energyWh": 215,
+        "powerCost": 0.0645,
+        "amortization": 0.21298171768707488,
+        "labor": 0,
+        "costPrice": 1.98578274861491,
+        "price": 2.382939298337892
+      }
+    },
+    {
+      "quote": 8,
+      "name": "Inners",
+      "printTimeMin": 355,
+      "runs": 1,
+      "weightG": 132.72,
+      "pricePerKg": 15.436231884057973,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 2.2030590144927538,
+        "energyWh": 488.33333333333337,
+        "powerCost": 0.14650000000000002,
+        "amortization": 0.5040567318594106,
+        "labor": 0,
+        "costPrice": 2.8536157463521645,
+        "price": 3.4243388956225975
+      }
+    },
+    {
+      "quote": 9,
+      "name": "corner-box-2-split",
+      "printTimeMin": 221,
+      "runs": 2,
+      "weightG": 130.66,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 3.2872242000000003,
+        "energyWh": 619.3333333333334,
+        "powerCost": 0.18580000000000002,
+        "amortization": 0.627586128117914,
+        "labor": 0,
+        "costPrice": 4.100610328117915,
+        "price": 4.920732393741497
+      }
+    },
+    {
+      "quote": 9,
+      "name": "corner-box-4-split",
+      "printTimeMin": 280,
+      "runs": 1,
+      "weightG": 154.55,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.92276675,
+        "energyWh": 388.33333333333337,
+        "powerCost": 0.1165,
+        "amortization": 0.39756587301587315,
+        "labor": 0,
+        "costPrice": 2.4368326230158734,
+        "price": 2.924199147619048
+      }
+    },
+    {
+      "quote": 9,
+      "name": "corner-box-no-split",
+      "printTimeMin": 162,
+      "runs": 1,
+      "weightG": 105.71,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.35207135,
+        "energyWh": 231,
+        "powerCost": 0.0693,
+        "amortization": 0.23002025510204088,
+        "labor": 0,
+        "costPrice": 1.6513916051020407,
+        "price": 1.9816699261224489
+      }
+    },
+    {
+      "quote": 9,
+      "name": "middle-box-2-split",
+      "printTimeMin": 219,
+      "runs": 1,
+      "weightG": 127.93,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.61171205,
+        "energyWh": 307,
+        "powerCost": 0.0921,
+        "amortization": 0.3109533078231293,
+        "labor": 0,
+        "costPrice": 2.014765357823129,
+        "price": 2.417718429387755
+      }
+    },
+    {
+      "quote": 9,
+      "name": "middle-box-4-split",
+      "printTimeMin": 268,
+      "runs": 0,
+      "weightG": 151.53,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 0,
+        "energyWh": 0,
+        "powerCost": 0,
+        "amortization": 0,
+        "labor": 0,
+        "costPrice": 0,
+        "price": 0
+      }
+    },
+    {
+      "quote": 9,
+      "name": "middle-box-no-split",
+      "printTimeMin": 163,
+      "runs": 1,
+      "weightG": 105.46,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.3491501,
+        "energyWh": 232.33333333333331,
+        "powerCost": 0.06969999999999998,
+        "amortization": 0.2314401332199547,
+        "labor": 0,
+        "costPrice": 1.6502902332199545,
+        "price": 1.9803482798639453
+      }
+    },
+    {
+      "quote": 9,
+      "name": "divider",
+      "printTimeMin": 192,
+      "runs": 1,
+      "weightG": 109.47,
+      "pricePerKg": 11.685,
+      "power": {
+        "heatupMin": 3,
+        "heatupPowerW": 200,
+        "powerFirstHourW": 85,
+        "powerFollowingHoursW": 80
+      },
+      "labor": {
+        "mode": "off"
+      },
+      "markup": {
+        "mode": "default"
+      },
+      "expected": {
+        "filamentCost": 1.39600695,
+        "energyWh": 271,
+        "powerCost": 0.0813,
+        "amortization": 0.27261659863945586,
+        "labor": 0,
+        "costPrice": 1.749923548639456,
+        "price": 2.099908258367347
+      }
+    }
+  ]
+}
