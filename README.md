@@ -16,7 +16,7 @@ private GitHub repository.
 
 Early development. Quotes (multi-plate, multi-filament, pricing profiles, freezing, printable offer), customers,
 printers with machine cost per hour, the filament catalog with purchases and price list, and JSON export/import
-work. Next: spool stock and weigh-ins, then sync. See the [milestones](docs/implementation-plan.md#8-milestones).
+work, as do spool stock and weigh-ins with empty-spool presets. Next: sync and offline support. See the [milestones](docs/implementation-plan.md#8-milestones).
 
 ## Features (planned)
 

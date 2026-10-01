@@ -3,9 +3,11 @@ import { customElement, property } from 'lit/decorators.js';
 import './filaments/filament-catalog';
 import './filaments/filament-purchases';
 import './filaments/price-list';
+import './filaments/filament-stock';
 
 const TABS = [
   { sub: '', label: 'Catalog' },
+  { sub: 'stock', label: 'Stock' },
   { sub: 'purchases', label: 'Purchases' },
   { sub: 'prices', label: 'Price list' },
 ];
@@ -29,7 +31,9 @@ export class FilamentsPage extends LitElement {
           </li>`,
         )}
       </ul>
-      ${tab === 'purchases'
+      ${tab === 'stock'
+        ? html`<filament-stock></filament-stock>`
+        : tab === 'purchases'
         ? html`<filament-purchases></filament-purchases>`
         : tab === 'prices'
           ? html`<price-list></price-list>`

@@ -24,16 +24,16 @@ export class AppShell extends LitElement {
     const { status, error } = this.#store.store;
     return html`
       <nav class="navbar navbar-expand bg-body border-bottom mb-3 d-print-none">
-        <div class="container">
+        <div class="container flex-wrap">
           <a class="navbar-brand" href="#/dashboard">3D Print Calc</a>
-          <ul class="navbar-nav me-auto flex-wrap">
+          <span class="badge text-bg-${statusColor(status)} order-md-last" title=${error ?? ''}>${status}</span>
+          <ul class="navbar-nav app-nav">
             ${ROUTES.map(
               (r) => html`<li class="nav-item">
                 <a class="nav-link ${this.#router.path === r.path ? 'active' : ''}" href="#/${r.path}">${r.label}</a>
               </li>`,
             )}
           </ul>
-          <span class="badge text-bg-${statusColor(status)}" title=${error ?? ''}>${status}</span>
         </div>
       </nav>
       <main class="container pb-5">${this.#page()}</main>

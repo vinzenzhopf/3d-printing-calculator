@@ -7,7 +7,7 @@
 
 import type { QuoteResult } from './calc/quote';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type Id = string;
 /** ISO date `YYYY-MM-DD`. */
@@ -27,6 +27,10 @@ export interface AppDocument {
   pricingProfiles: PricingProfile[];
   customers: Customer[];
   quotes: Quote[];
+  /** Since schema 2. */
+  spools: Spool[];
+  /** Since schema 2. */
+  tarePresets: TarePreset[];
 }
 
 export interface Settings {
@@ -137,6 +141,54 @@ export interface Filament {
   status: 'owned' | 'wishlist';
   /** Price list entry for this color, overrides the product line's (FI-11). */
   manualPrice?: ManualPrice;
+}
+
+export type SpoolType = 'plastic' | 'cardboard' | 'refill';
+
+/** One physical spool (FI-5). Its stock is the sum of its movements (FI-6). */
+export interface Spool {
+  id: Id;
+  filamentId: Id;
+  purchaseId?: Id;
+  /** Short label written on the spool, e.g. "S12". */
+  label: string;
+  /** Net filament weight when new, grams. */
+  nominalG: number;
+  spoolType: SpoolType | null;
+  /** Measured empty-spool weight of this spool; overrides presets. */
+  tareG?: number;
+  status: 'sealed' | 'open' | 'empty' | 'discarded';
+  location?: string;
+  openedAt?: IsoDate;
+  driedAt?: IsoDate;
+  /** No movements = stock unknown (e.g. found on the shelf, not weighed yet). */
+  movements: StockMovement[];
+}
+
+export interface StockMovement {
+  id: Id;
+  date: IsoDate;
+  kind: 'initial' | 'print' | 'weigh-in' | 'adjust' | 'discard';
+  /** Change in net filament grams (negative = used). */
+  grams: number;
+  /** Weigh-ins: what the scale showed, incl. spool. */
+  grossG?: number;
+  tareG?: number;
+  quoteId?: Id;
+  note?: string;
+}
+
+/** Empty-spool weight preset (FI-6a). Lookup: product line → manufacturer → any. */
+export interface TarePreset {
+  id: Id;
+  /** null = any manufacturer. */
+  manufacturer: string | null;
+  /** null = any line of the manufacturer. */
+  productLineId: Id | null;
+  spoolType: SpoolType;
+  emptyG: number;
+  source: string;
+  verified: boolean;
 }
 
 export interface FilamentPurchase {

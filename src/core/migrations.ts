@@ -1,4 +1,4 @@
-import { createEmptyDocument } from './document';
+import { DEFAULT_TARE_PRESETS, createEmptyDocument } from './document';
 import { SCHEMA_VERSION, type AppDocument } from './model';
 
 export class DocumentError extends Error {}
@@ -15,7 +15,10 @@ type Raw = Record<string, unknown>;
  * Migrations from version n to n+1, indexed by n. Every schema change adds one
  * step here and bumps SCHEMA_VERSION. Steps get the raw object and return it updated.
  */
-const MIGRATIONS: Record<number, (doc: Raw) => Raw> = {};
+const MIGRATIONS: Record<number, (doc: Raw) => Raw> = {
+  // 2: spool stock (FI-5/6) and empty-spool presets (FI-6a).
+  1: (doc) => ({ ...doc, spools: doc.spools ?? [], tarePresets: doc.tarePresets ?? structuredClone(DEFAULT_TARE_PRESETS) }),
+};
 
 const COLLECTIONS = [
   'materialProfiles',
@@ -28,6 +31,8 @@ const COLLECTIONS = [
   'pricingProfiles',
   'customers',
   'quotes',
+  'spools',
+  'tarePresets',
 ] as const satisfies readonly (keyof AppDocument)[];
 
 /**

@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { resolveFilamentPrice } from '../../../core/calc/price-resolution';
+import { stockByFilament } from '../../../core/stock';
 import type { AppDocument, BaseMaterial, Filament, ProductLine } from '../../../core/model';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
@@ -114,12 +115,13 @@ export class FilamentCatalog extends LitElement {
     const doc = this.#doc;
     const cur = doc.settings.currency;
     const asOf = today();
+    const stock = stockByFilament(doc);
     const set = (id: string, mutate: (f: Filament) => void) => this.#update((d) => mutate(d.filaments.find((f) => f.id === id)!));
     return html`
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
-            <tr><th></th><th>Color</th><th>Finish</th><th>Status</th><th>Acquired as</th><th class="text-end">Bought</th><th>Price / kg (1 kg)</th><th>Link</th><th></th></tr>
+            <tr><th></th><th>Color</th><th>Finish</th><th>Status</th><th>Acquired as</th><th class="text-end">Bought</th><th class="text-end">Stock</th><th>Price / kg (1 kg)</th><th>Link</th><th></th></tr>
           </thead>
           <tbody>
             ${filaments.map((f) => {
@@ -132,6 +134,7 @@ export class FilamentCatalog extends LitElement {
                 <td>${cellSelect(f.status, STATUS, (v) => set(f.id, (x) => (x.status = v as Filament['status'])), true, 'Status')}</td>
                 <td>${cellSelect(f.acquisition, ACQUISITION, (v) => set(f.id, (x) => (x.acquisition = v as Filament['acquisition'])), true, 'Acquired as')}</td>
                 <td class="text-end text-nowrap">${kg ? `${num(kg, kg % 1 ? 2 : 0)} kg` : '–'}</td>
+                <td class="text-end text-nowrap">${stockCell(stock.get(f.id))}</td>
                 <td class="text-nowrap">${priceCell(resolveFilamentPrice(doc, f.id, { asOf, needKg: 1 }), cur)}</td>
                 <td>${f.link ? html`<a href=${f.link} target="_blank" rel="noopener noreferrer">shop</a>` : nothing}</td>
                 <td>${bought.length === 0
@@ -202,4 +205,9 @@ export class FilamentCatalog extends LitElement {
     }
     this.#update((d) => (d.filaments = d.filaments.filter((x) => x.id !== f.id)));
   }
+}
+
+function stockCell(s: { knownG: number; spools: number; unknownSpools: number } | undefined) {
+  if (!s) return html`<span class="text-body-secondary">–</span>`;
+  return html`${num(s.knownG / 1000, 2)} kg${s.unknownSpools ? html` <span class="badge text-bg-warning" title="Spools not weighed yet">+${s.unknownSpools} ?</span>` : nothing}`;
 }

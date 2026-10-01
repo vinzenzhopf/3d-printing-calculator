@@ -17,3 +17,20 @@ app-shell {
     background: none;
   }
 }
+
+/* Navigation: one scrollable row under the brand on phones, inline from md up. */
+.app-nav {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  width: 100%;
+  scrollbar-width: none;
+}
+.app-nav .nav-link {
+  white-space: nowrap;
+}
+@media (min-width: 768px) {
+  .app-nav {
+    width: auto;
+    margin-right: auto;
+  }
+}
