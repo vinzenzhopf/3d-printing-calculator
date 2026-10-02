@@ -54,3 +54,19 @@ export function quoteResult(doc: AppDocument, quote: Quote, asOf: IsoDate): Quot
     return null;
   }
 }
+
+/**
+ * Plain-text summary for messengers / e-mail (QO-2). Positions at the shown
+ * price level (gross when prices include VAT); no internal costs.
+ */
+export function quoteSummaryText(doc: AppDocument, quote: Quote, result: QuoteResult, fmt: (n: number) => string): string {
+  const s = doc.settings;
+  const factor = result.net > 0 ? result.price / result.net : 1;
+  const lines = [`Quote #${quote.number}: ${quote.title}`, ''];
+  for (const p of result.plates) {
+    lines.push(p.parts > 1 ? `- ${p.name}: ${p.parts} × ${fmt(p.pricePerPart * factor)} = ${fmt(p.price * factor)}` : `- ${p.name}: ${fmt(p.price * factor)}`);
+  }
+  lines.push('', `Total: ${fmt(result.price)}${s.vat.enabled ? (s.vat.pricesIncludeVat ? ` incl. ${s.vat.ratePercent} % VAT` : ` + ${s.vat.ratePercent} % VAT`) : ''}`);
+  if (!s.vat.enabled && s.vat.noVatNote) lines.push(s.vat.noVatNote);
+  return lines.join('\n');
+}

@@ -7,7 +7,7 @@
 
 import type { QuoteResult } from './calc/quote';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type Id = string;
 /** ISO date `YYYY-MM-DD`. */
@@ -31,6 +31,30 @@ export interface AppDocument {
   spools: Spool[];
   /** Since schema 2. */
   tarePresets: TarePreset[];
+  /** Since schema 3. */
+  printJobs: PrintJob[];
+}
+
+/** One logged print run (JR-2). Drives stock deduction, hour counters and the failure rate. */
+export interface PrintJob {
+  id: Id;
+  date: IsoDate;
+  printerId: Id;
+  name: string;
+  printTimeMin: number;
+  result: 'success' | 'failed' | 'cancelled';
+  filaments: PrintJobFilament[];
+  quoteId?: Id;
+  plateId?: Id;
+  note?: string;
+}
+
+export interface PrintJobFilament {
+  filamentId: Id;
+  /** Grams actually used incl. waste (for failed prints: what was used until it failed). */
+  grams: number;
+  /** Spool the filament came from; its stock is reduced. */
+  spoolId?: Id;
 }
 
 export interface Settings {
@@ -141,6 +165,8 @@ export interface Filament {
   status: 'owned' | 'wishlist';
   /** Price list entry for this color, overrides the product line's (FI-11). */
   manualPrice?: ManualPrice;
+  /** Warn and put on the to-buy list below this stock (FI-7). */
+  lowStockG?: number;
 }
 
 export type SpoolType = 'plastic' | 'cardboard' | 'refill';
@@ -175,6 +201,8 @@ export interface StockMovement {
   grossG?: number;
   tareG?: number;
   quoteId?: Id;
+  /** Set for "print" movements booked by a print job; removed with the job. */
+  jobId?: Id;
   note?: string;
 }
 

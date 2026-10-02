@@ -3,7 +3,8 @@ import { customElement, state } from 'lit/decorators.js';
 import { createEmptyDocument } from '../../core/document';
 import { DocumentError, type LoadedDocument } from '../../core/migrations';
 import type { Settings } from '../../core/model';
-import { exportFileName, parseDocument, serializeDocument, summarize, type DocumentSummary } from '../../core/transfer';
+import { parseDocument, summarize, type DocumentSummary } from '../../core/transfer';
+import { downloadBackup } from '../backup';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { numberField, switchField, textAreaField, textField } from '../fields';
@@ -160,13 +161,7 @@ export class SettingsPage extends LitElement {
     `;
   }
 
-  #export = () => {
-    const blob = new Blob([serializeDocument(this.#store.store.doc)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href: url, download: exportFileName() });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  #export = () => downloadBackup(this.#store.store.doc);
 
   #pickImport = async (e: Event) => {
     const input = e.target as HTMLInputElement;

@@ -5,7 +5,7 @@ import { stockByFilament } from '../../../core/stock';
 import type { AppDocument, BaseMaterial, Filament, ProductLine } from '../../../core/model';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
-import { cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
+import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
 import { newId, num, today } from '../../format';
 import { BASE_MATERIALS } from '../printers-page';
 import { lineLabel, priceCell } from './labels';
@@ -121,7 +121,7 @@ export class FilamentCatalog extends LitElement {
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
-            <tr><th></th><th>Color</th><th>Finish</th><th>Status</th><th>Acquired as</th><th class="text-end">Bought</th><th class="text-end">Stock</th><th>Price / kg (1 kg)</th><th>Link</th><th></th></tr>
+            <tr><th></th><th>Color</th><th>Finish</th><th>Status</th><th>Acquired as</th><th class="text-end">Bought</th><th class="text-end">Stock</th><th title="Warn below this stock">Low at (g)</th><th>Price / kg (1 kg)</th><th>Link</th><th></th></tr>
           </thead>
           <tbody>
             ${filaments.map((f) => {
@@ -134,7 +134,8 @@ export class FilamentCatalog extends LitElement {
                 <td>${cellSelect(f.status, STATUS, (v) => set(f.id, (x) => (x.status = v as Filament['status'])), true, 'Status')}</td>
                 <td>${cellSelect(f.acquisition, ACQUISITION, (v) => set(f.id, (x) => (x.acquisition = v as Filament['acquisition'])), true, 'Acquired as')}</td>
                 <td class="text-end text-nowrap">${kg ? `${num(kg, kg % 1 ? 2 : 0)} kg` : '–'}</td>
-                <td class="text-end text-nowrap">${stockCell(stock.get(f.id))}</td>
+                <td class="text-end text-nowrap">${stockCell(stock.get(f.id), f.lowStockG)}</td>
+                <td style="width: 6rem">${cellNumber(f.lowStockG ?? null, (v) => set(f.id, (x) => (v === null || v === 0 ? delete x.lowStockG : (x.lowStockG = v))), { min: 0, step: 100, allowEmpty: true, title: 'Low-stock threshold in grams' })}</td>
                 <td class="text-nowrap">${priceCell(resolveFilamentPrice(doc, f.id, { asOf, needKg: 1 }), cur)}</td>
                 <td>${f.link ? html`<a href=${f.link} target="_blank" rel="noopener noreferrer">shop</a>` : nothing}</td>
                 <td>${bought.length === 0
@@ -207,7 +208,8 @@ export class FilamentCatalog extends LitElement {
   }
 }
 
-function stockCell(s: { knownG: number; spools: number; unknownSpools: number } | undefined) {
-  if (!s) return html`<span class="text-body-secondary">–</span>`;
-  return html`${num(s.knownG / 1000, 2)} kg${s.unknownSpools ? html` <span class="badge text-bg-warning" title="Spools not weighed yet">+${s.unknownSpools} ?</span>` : nothing}`;
+function stockCell(s: { knownG: number; spools: number; unknownSpools: number } | undefined, lowG: number | undefined) {
+  const low = lowG !== undefined && (s?.knownG ?? 0) < lowG ? html` <span class="badge text-bg-danger">low</span>` : nothing;
+  if (!s) return html`<span class="text-body-secondary">–</span>${low}`;
+  return html`${num(s.knownG / 1000, 2)} kg${s.unknownSpools ? html` <span class="badge text-bg-warning" title="Spools not weighed yet">+${s.unknownSpools} ?</span>` : nothing}${low}`;
 }

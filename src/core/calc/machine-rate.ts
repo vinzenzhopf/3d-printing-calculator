@@ -1,4 +1,4 @@
-import type { AppDocument, Id, IsoDate, PlannedInvestment, Printer } from '../model';
+import type { AppDocument, Id, IsoDate, PlannedInvestment, PrintJob, Printer } from '../model';
 
 export interface HoursBasis {
   /** Print hours per year, null when unknown. */
@@ -45,9 +45,10 @@ function addYears(date: IsoDate, years: number): IsoDate {
 
 /**
  * Hours per year: manual override, else the usage snapshot covering the longest
- * period. Lifetime hours: the highest lifetime counter reading (since = null).
+ * period. Lifetime hours: the highest lifetime counter reading (since = null)
+ * plus print jobs logged after that reading.
  */
-export function printerHours(printer: Printer): HoursBasis {
+export function printerHours(printer: Printer, jobs: readonly PrintJob[] = []): HoursBasis {
   const stats = printer.usageStats ?? [];
   let hoursPerYear: number | null = null;
   let hoursPerYearSource = 'unknown';
@@ -66,11 +67,15 @@ export function printerHours(printer: Printer): HoursBasis {
   }
 
   const lifetime = stats.filter((s) => s.since === null).sort((a, b) => b.printHours - a.printHours)[0];
+  const logged = jobs.filter((j) => j.printerId === printer.id && (!lifetime || j.date > lifetime.asOf));
+  const loggedHours = logged.reduce((sum, j) => sum + j.printTimeMin / 60, 0);
   return {
     hoursPerYear,
     hoursPerYearSource,
-    lifetimeHours: lifetime?.printHours ?? null,
-    lifetimeSource: lifetime ? `${lifetime.source}, ${lifetime.asOf}` : 'unknown',
+    lifetimeHours: lifetime ? lifetime.printHours + loggedHours : null,
+    lifetimeSource: lifetime
+      ? `${lifetime.source}, ${lifetime.asOf}${logged.length ? ` + ${logged.length} logged jobs` : ''}`
+      : 'unknown',
   };
 }
 
@@ -98,7 +103,7 @@ export function machineRate(doc: AppDocument, printerId: Id, asOf: IsoDate): Mac
   const printer = doc.printers.find((p) => p.id === printerId);
   if (!printer) throw new Error(`Unknown printer ${printerId}`);
   const warnings: string[] = [];
-  const hours = printerHours(printer);
+  const hours = printerHours(printer, doc.printJobs);
   const own = doc.machineCosts.filter((c) => c.printerId === printerId);
 
   // Investments: per-year amortization while active, divided by hours per year.
@@ -128,7 +133,7 @@ export function machineRate(doc: AppDocument, printerId: Id, asOf: IsoDate): Mac
   if (sharedTotal > 0) {
     const fleetHours = doc.printers
       .filter((p) => p.status === 'active')
-      .reduce((sum, p) => sum + (printerHours(p).lifetimeHours ?? 0), 0);
+      .reduce((sum, p) => sum + (printerHours(p, doc.printJobs).lifetimeHours ?? 0), 0);
     if (fleetHours > 0) sharedPerHour = sharedTotal / fleetHours;
     else warnings.push('Shared costs need lifetime hour counters on the active printers.');
   }

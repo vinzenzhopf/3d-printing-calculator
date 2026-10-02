@@ -1,3 +1,4 @@
+import { SCHEMA_VERSION } from '../src/core/model';
 import { describe, expect, it } from 'vitest';
 import { createEmptyDocument } from '../src/core/document';
 import { AppStore } from '../src/state/app-store';
@@ -102,7 +103,7 @@ describe('SyncService', () => {
     await remote.save(old as never, null);
     await a.sync.sync();
     await a.sync.resolve('theirs');
-    expect(a.store.doc.schemaVersion).toBe(2);
+    expect(a.store.doc.schemaVersion).toBe(SCHEMA_VERSION);
     expect(a.store.doc.spools).toEqual([]);
   });
 });

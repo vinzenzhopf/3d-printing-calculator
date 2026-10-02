@@ -9,6 +9,7 @@ import './pages/printers-page';
 import './pages/filaments-page';
 import './pages/quotes-page';
 import './pages/customers-page';
+import './pages/print-log-page';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -78,6 +79,8 @@ export class AppShell extends LitElement {
         return html`<printers-page></printers-page>`;
       case 'quotes':
         return html`<quotes-page .sub=${this.#router.sub}></quotes-page>`;
+      case 'log':
+        return html`<print-log-page></print-log-page>`;
       case 'customers':
         return html`<customers-page></customers-page>`;
       case 'filaments':

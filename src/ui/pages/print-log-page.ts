@@ -1,0 +1,161 @@
+import { LitElement, html, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import { formatDuration, parseDuration } from '../../core/duration';
+import type { AppDocument, PrintJob } from '../../core/model';
+import { addJob, jobStats, removeJob, suggestSpool } from '../../core/print-log';
+import { remainingG } from '../../core/stock';
+import { StoreController } from '../../state/app-store';
+import { store } from '../../state/store-instance';
+import { cellNumber, cellSelect, cellText, type Option } from '../fields';
+import { newId, num, percent, today } from '../format';
+import { filamentLabel, filamentOptions } from './filaments/labels';
+
+const RESULTS: Option[] = [
+  { value: 'success', label: 'Success' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+let pendingDraft: PrintJob | null = null;
+
+/** Opens the print log with a pre-filled job (e.g. from a quote plate). */
+export function openPrintLogWith(job: PrintJob): void {
+  pendingDraft = job;
+  location.hash = '#/log';
+}
+
+@customElement('print-log-page')
+export class PrintLogPage extends LitElement {
+  #store = new StoreController(this, store());
+  @state() private draft: PrintJob | null = null;
+
+  protected override createRenderRoot() {
+    return this;
+  }
+
+  override connectedCallback() {
+    super.connectedCallback();
+    if (pendingDraft) {
+      this.draft = pendingDraft;
+      pendingDraft = null;
+    }
+  }
+
+  get #doc(): AppDocument {
+    return this.#store.store.doc;
+  }
+
+  override render() {
+    const doc = this.#doc;
+    const jobs = [...doc.printJobs].sort((a, b) => b.date.localeCompare(a.date));
+    const printerName = new Map(doc.printers.map((p) => [p.id, p.name]));
+    const quoteNumber = new Map(doc.quotes.map((q) => [q.id, q.number]));
+    const stats = jobStats(jobs);
+    return html`
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <h1 class="h3 mb-0 me-auto">Print log</h1>
+        <button class="btn btn-primary" @click=${this.#newDraft}>${this.draft ? 'Discard' : 'Log a print'}</button>
+      </div>
+      <p class="small text-body-secondary">
+        Logged prints take filament from the chosen spools, add to the printer's hour counter, and show your real
+        failure rate. Tip: use "Log run" on a quote plate to pre-fill everything.
+      </p>
+      ${this.draft ? this.#form(this.draft) : nothing}
+      ${jobs.length
+        ? html`<p class="small">${stats.jobs} prints · ${formatDuration(stats.hours * 60)} h · ${num(stats.filamentG / 1000, 2)} kg filament · failed/cancelled: ${stats.failureRate === null ? '–' : percent(stats.failureRate, 1)} of print time</p>
+            <div class="table-responsive"><table class="table table-sm align-middle">
+              <thead><tr><th>Date</th><th>Print</th><th>Printer</th><th>Time</th><th>Filament</th><th>Result</th><th></th></tr></thead>
+              <tbody>
+                ${jobs.map((j) => html`<tr class=${j.result === 'success' ? '' : 'table-warning'}>
+                  <td class="text-nowrap">${j.date}</td>
+                  <td>${j.name}${j.quoteId ? html` <a class="small" href="#/quotes/${j.quoteId}">#${quoteNumber.get(j.quoteId) ?? '?'}</a>` : nothing}${j.note ? html`<div class="small text-body-secondary">${j.note}</div>` : nothing}</td>
+                  <td class="small">${printerName.get(j.printerId) ?? '?'}</td>
+                  <td>${formatDuration(j.printTimeMin)}</td>
+                  <td class="small">${j.filaments.map((f) => html`<div>${num(f.grams)} g ${this.#filamentName(f.filamentId)}${f.spoolId ? ` (${this.#spoolLabel(f.spoolId)})` : ''}</div>`)}</td>
+                  <td>${j.result}</td>
+                  <td><button class="btn btn-sm btn-link text-danger" title="Delete (returns the filament to the spools)" @click=${() => this.#delete(j)}>✕</button></td>
+                </tr>`)}
+              </tbody>
+            </table></div>`
+        : this.draft ? nothing : html`<p class="text-body-secondary">No prints logged yet.</p>`}
+    `;
+  }
+
+  #form(job: PrintJob) {
+    const doc = this.#doc;
+    const edit = (mutate: (j: PrintJob) => void) => {
+      const next = structuredClone(job);
+      mutate(next);
+      this.draft = next;
+    };
+    const printers: Option[] = doc.printers.filter((p) => p.status !== 'retired').map((p) => ({ value: p.id, label: p.name }));
+    const filaments: Option[] = [{ value: '', label: 'Filament…' }, ...filamentOptions(doc)];
+    const spoolOptions = (filamentId: string): Option[] => [
+      { value: '', label: 'no spool (stock not changed)' },
+      ...doc.spools
+        .filter((s) => s.filamentId === filamentId && s.status !== 'discarded' && s.status !== 'empty')
+        .map((s) => ({ value: s.id, label: `${s.label} · ${remainingG(s) === null ? 'unknown' : `${num(remainingG(s))} g`}` })),
+    ];
+    const valid = job.printerId && job.filaments.every((f) => f.filamentId);
+    return html`
+      <section class="card card-body mb-3 bg-body-tertiary">
+        <div class="row g-2 mb-2">
+          <div class="col-md-2"><label class="small d-block">Date${cellText(job.date, (v) => edit((j) => (j.date = v)), { type: 'date', title: 'Date' })}</label></div>
+          <div class="col-md-4"><label class="small d-block">Print${cellText(job.name, (v) => edit((j) => (j.name = v)), { title: 'Name' })}</label></div>
+          <div class="col-md-2"><label class="small d-block">Printer${cellSelect(job.printerId, printers, (v) => edit((j) => (j.printerId = v)), true, 'Printer')}</label></div>
+          <div class="col-md-2"><label class="small d-block">Time (h:mm)
+            <input class="form-control form-control-sm" .value=${formatDuration(job.printTimeMin)}
+              @change=${(e: Event) => { const input = e.target as HTMLInputElement; const m = parseDuration(input.value); if (m === null) input.value = formatDuration(job.printTimeMin); else edit((j) => (j.printTimeMin = m)); }} /></label></div>
+          <div class="col-md-2"><label class="small d-block">Result${cellSelect(job.result, RESULTS, (v) => edit((j) => (j.result = v as PrintJob['result'])), true, 'Result')}</label></div>
+        </div>
+        <table class="table table-sm align-middle mb-2">
+          <thead><tr><th>Filament</th><th style="width: 7rem">Grams used</th><th>From spool</th><th></th></tr></thead>
+          <tbody>
+            ${job.filaments.map((f, i) => html`<tr>
+              <td>${cellSelect(f.filamentId, filaments, (v) => edit((j) => { const spoolId = suggestSpool(doc, v); j.filaments[i] = { filamentId: v, grams: f.grams, ...(spoolId ? { spoolId } : {}) }; }), true, 'Filament')}</td>
+              <td>${cellNumber(f.grams, (v) => edit((j) => (j.filaments[i]!.grams = v ?? 0)), { min: 0, step: 0.1, title: 'Grams' })}</td>
+              <td>${f.filamentId ? cellSelect(f.spoolId ?? '', spoolOptions(f.filamentId), (v) => edit((j) => { if (v) j.filaments[i]!.spoolId = v; else delete j.filaments[i]!.spoolId; }), true, 'Spool') : nothing}</td>
+              <td><button class="btn btn-sm btn-link text-danger" title="Remove" @click=${() => edit((j) => j.filaments.splice(i, 1))}>✕</button></td>
+            </tr>`)}
+          </tbody>
+        </table>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <button class="btn btn-sm btn-outline-primary" @click=${() => edit((j) => j.filaments.push({ filamentId: '', grams: 0 }))}>+ Filament</button>
+          ${cellText(job.note, (v) => edit((j) => (j.note = v || undefined)), { title: 'Note', placeholder: 'Note (optional)' })}
+          <button class="btn btn-primary ms-auto" ?disabled=${!valid} @click=${this.#save}>Save print</button>
+        </div>
+        ${job.result !== 'success' ? html`<p class="small text-body-secondary mt-2 mb-0">For failed prints, enter the filament used until it failed.</p>` : nothing}
+      </section>
+    `;
+  }
+
+  #newDraft = () => {
+    if (this.draft) {
+      this.draft = null;
+      return;
+    }
+    const printer = this.#doc.printers.find((p) => p.status === 'active');
+    this.draft = { id: newId(), date: today(), printerId: printer?.id ?? '', name: 'Print', printTimeMin: 60, result: 'success', filaments: [{ filamentId: '', grams: 0 }] };
+  };
+
+  #save = async () => {
+    const job = this.draft;
+    if (!job) return;
+    await this.#store.store.update((d) => addJob(d, job, newId));
+    this.draft = null;
+  };
+
+  #delete(job: PrintJob) {
+    if (!confirm(`Delete "${job.name}" from ${job.date}? The filament is returned to the spools.`)) return;
+    void this.#store.store.update((d) => removeJob(d, job.id));
+  }
+
+  #filamentName(id: string): string {
+    const f = this.#doc.filaments.find((x) => x.id === id);
+    return f ? filamentLabel(this.#doc, f) : '?';
+  }
+
+  #spoolLabel(id: string): string {
+    return this.#doc.spools.find((s) => s.id === id)?.label ?? '?';
+  }
+}

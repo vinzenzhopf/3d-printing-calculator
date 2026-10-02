@@ -1,20 +1,23 @@
 import { LitElement, html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { QuoteResult } from '../../../core/calc/quote';
 import { formatDuration, parseDuration } from '../../../core/duration';
 import type { AppDocument, Plate, Quote, QuoteExtra, QuoteStatus } from '../../../core/model';
-import { QUOTE_STATUSES, createQuote, freezeQuote, quoteResult, setQuoteStatus } from '../../../core/quotes';
+import { jobFromPlate } from '../../../core/print-log';
+import { QUOTE_STATUSES, createQuote, freezeQuote, quoteResult, quoteSummaryText, setQuoteStatus } from '../../../core/quotes';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
 import { money, newId, num, percent, today } from '../../format';
 import { SOURCE_LABEL, filamentOptions } from '../filaments/labels';
 import { STATUS_COLOR } from './status';
+import { openPrintLogWith } from '../print-log-page';
 import './quote-offer';
 
 @customElement('quote-editor')
 export class QuoteEditor extends LitElement {
   @property() quoteId = '';
+  @state() private copied = false;
   #store = new StoreController(this, store());
 
   protected override createRenderRoot() {
@@ -51,6 +54,7 @@ export class QuoteEditor extends LitElement {
           <h1 class="h4 mb-0 me-auto">#${quote.number} ${quote.title}</h1>
           <span class="badge text-bg-${STATUS_COLOR[quote.status]}">${quote.status}</span>
           <button class="btn btn-sm btn-outline-secondary" @click=${() => window.print()} ?disabled=${!result}>Print / PDF</button>
+          <button class="btn btn-sm btn-outline-secondary" ?disabled=${!result} @click=${() => this.#copySummary(result!)}>${this.copied ? 'Copied ✓' : 'Copy summary'}</button>
           <button class="btn btn-sm btn-outline-secondary" @click=${this.#duplicate}>Duplicate</button>
           <button class="btn btn-sm btn-outline-danger" @click=${this.#delete}>Delete</button>
         </div>
@@ -118,6 +122,8 @@ export class QuoteEditor extends LitElement {
           <span class="text-body-secondary">${index + 1}.</span>
           <div class="flex-grow-1">${cellText(plate.name, (v) => this.#plate(plate.id, (p) => (p.name = v)), { title: 'Plate name' })}</div>
           ${r ? html`<span class="small text-nowrap">${money(r.price, cur)}${r.parts > 1 ? html` · ${money(r.pricePerPart, cur)}/part` : nothing}</span>` : nothing}
+          <button class="btn btn-sm btn-outline-secondary" title="Log one printed run of this plate" ?disabled=${plate.filaments.length === 0}
+            @click=${() => openPrintLogWith(jobFromPlate(doc, plate, { id: newId(), date: today(), quoteId: this.quoteId }))}>Log run</button>
           <button class="btn btn-sm btn-link" title="Duplicate plate" @click=${() => this.#set((q) => q.plates.splice(index + 1, 0, { ...structuredClone(plate), id: newId(), name: `${plate.name} (copy)` }))}>⧉</button>
           <button class="btn btn-sm btn-link text-danger" title="Remove plate" @click=${() => this.#set((q) => q.plates.splice(index, 1))}>✕</button>
         </div>
@@ -222,6 +228,14 @@ export class QuoteEditor extends LitElement {
         </div>
       </section>
     `;
+  }
+
+  #copySummary(result: QuoteResult) {
+    const cur = this.#doc.settings.currency;
+    void navigator.clipboard.writeText(quoteSummaryText(this.#doc, this.#quote!, result, (n) => money(n, cur))).then(() => {
+      this.copied = true;
+      setTimeout(() => (this.copied = false), 2000);
+    });
   }
 
   #status(status: QuoteStatus) {

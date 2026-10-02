@@ -1,6 +1,7 @@
 import { LitElement, html, nothing, type ReactiveController } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { exportFileName, serializeDocument, summarize, type DocumentSummary } from '../core/transfer';
+import { summarize, type DocumentSummary } from '../core/transfer';
+import { downloadBackup } from './backup';
 import { store, syncManager } from '../state/store-instance';
 import type { SyncConfig } from '../state/sync-manager';
 import { switchField, textField } from './fields';
@@ -167,9 +168,5 @@ export class SyncSettings extends LitElement {
     }
   };
 
-  #exportLocal = () => {
-    const url = URL.createObjectURL(new Blob([serializeDocument(store().doc)], { type: 'application/json' }));
-    Object.assign(document.createElement('a'), { href: url, download: exportFileName() }).click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  #exportLocal = () => downloadBackup(store().doc);
 }

@@ -1,3 +1,4 @@
+import { SCHEMA_VERSION } from '../src/core/model';
 import { describe, expect, it } from 'vitest';
 import { createEmptyDocument } from '../src/core/document';
 import { loadDocument } from '../src/core/migrations';
@@ -97,7 +98,7 @@ describe('length and weight', () => {
 describe('schema 2 migration', () => {
   it('adds spools and default tare presets to version 1 documents', () => {
     const { doc: d } = loadDocument({ schemaVersion: 1 });
-    expect(d.schemaVersion).toBe(2);
+    expect(d.schemaVersion).toBe(SCHEMA_VERSION);
     expect(d.spools).toEqual([]);
     expect(d.tarePresets.length).toBeGreaterThan(0);
   });

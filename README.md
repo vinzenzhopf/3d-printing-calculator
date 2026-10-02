@@ -19,13 +19,14 @@ printers with machine cost per hour, the filament catalog with purchases and pri
 work, as do spool stock and weigh-ins with empty-spool presets, sync via a private GitHub repository, and offline
 use (installable as an app). See the [milestones](docs/implementation-plan.md#8-milestones).
 
-## Features (planned)
+## Features
 
 - Quotes with multiple plates, printers and filaments per plate, extras, and a printable offer
 - Pricing profiles: components, failure allowance, markup, minimum price, rounding, optional VAT
 - Filament price based on recent purchases or a manual price list
 - Machine cost per hour, including a reserve for your next printer
-- Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets
+- Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets, low-stock list
+- Print log: deducts filament from spools, tracks printer hours and your real failure rate
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
 - Works offline and can be installed as an app
 

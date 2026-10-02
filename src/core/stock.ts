@@ -116,3 +116,26 @@ export function gramsToMeters(grams: number, densityGcm3: number, diameterMm: nu
 
 /** Typical densities when a product line has none set. */
 export const DEFAULT_DENSITY: Record<string, number> = { PLA: 1.24, PETG: 1.27, ABS: 1.04, ASA: 1.07, TPU: 1.21, Other: 1.24 };
+
+export interface ToBuy {
+  filamentId: Id;
+  stockG: number;
+  thresholdG: number;
+  /** Some spools of this filament are not weighed yet, so the real stock may be higher. */
+  hasUnknown: boolean;
+  lastPurchase?: FilamentPurchase;
+}
+
+/** Filaments below their low-stock threshold (FI-7), most urgent first. */
+export function toBuyList(doc: AppDocument): ToBuy[] {
+  const stock = stockByFilament(doc);
+  return doc.filaments
+    .filter((f) => f.lowStockG !== undefined && f.status === 'owned')
+    .map((f) => {
+      const s = stock.get(f.id);
+      const lastPurchase = doc.purchases.filter((p) => p.filamentId === f.id).sort((a, b) => b.date.localeCompare(a.date))[0];
+      return { filamentId: f.id, stockG: s?.knownG ?? 0, thresholdG: f.lowStockG!, hasUnknown: (s?.unknownSpools ?? 0) > 0, ...(lastPurchase ? { lastPurchase } : {}) };
+    })
+    .filter((x) => x.stockG < x.thresholdG)
+    .sort((a, b) => a.stockG / a.thresholdG - b.stockG / b.thresholdG);
+}

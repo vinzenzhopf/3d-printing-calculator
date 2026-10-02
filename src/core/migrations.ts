@@ -18,6 +18,8 @@ type Raw = Record<string, unknown>;
 const MIGRATIONS: Record<number, (doc: Raw) => Raw> = {
   // 2: spool stock (FI-5/6) and empty-spool presets (FI-6a).
   1: (doc) => ({ ...doc, spools: doc.spools ?? [], tarePresets: doc.tarePresets ?? structuredClone(DEFAULT_TARE_PRESETS) }),
+  // 3: print log (JR-2).
+  2: (doc) => ({ ...doc, printJobs: doc.printJobs ?? [] }),
 };
 
 const COLLECTIONS = [
@@ -33,6 +35,7 @@ const COLLECTIONS = [
   'quotes',
   'spools',
   'tarePresets',
+  'printJobs',
 ] as const satisfies readonly (keyof AppDocument)[];
 
 /**

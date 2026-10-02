@@ -47,5 +47,6 @@ export function createEmptyDocument(now = new Date()): AppDocument {
     quotes: [],
     spools: [],
     tarePresets: structuredClone(DEFAULT_TARE_PRESETS),
+    printJobs: [],
   };
 }

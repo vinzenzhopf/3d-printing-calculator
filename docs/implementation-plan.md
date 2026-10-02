@@ -71,7 +71,8 @@ src/
     orders.ts                   split a (bundle) order into purchases (FI-4)
     calc/quote.ts               quote pricing: policy layer + order of operations (section 5)
     quotes.ts                   numbering, creation with customer defaults, status + freezing (QC-5)
-    stock.ts                    spool ledger, tare lookup, weigh-ins, spools from purchases, m ↔ g (FI-5/6)
+    stock.ts                    spool ledger, tare lookup, weigh-ins, spools from purchases, m ↔ g, to-buy list
+    print-log.ts                print jobs: from quote plates, stock booking, statistics (JR-2)
   state/
     app-store.ts                AppStore + StoreController (Lit reactive controller)
     store-instance.ts
@@ -92,6 +93,7 @@ src/
     pages/filaments-page.ts     tabs: catalog, stock, purchases, price list (pages/filaments/*)
     pages/quotes-page.ts        quote list; quotes/quote-editor.ts, quotes/quote-offer.ts (print view)
     pages/customers-page.ts     customers with defaults, quote history, revenue
+    pages/print-log-page.ts     print log
     pricing-profiles-editor.ts  pricing profiles (on the settings page)
 tests/
   legacy-replay.test.ts         all 30 Excel rows through the new engine (6 decimals)
@@ -173,7 +175,8 @@ cost, price). Any engine change that breaks it is either a bug or a deliberate, 
 | **M3** ✔ | Quotes: plates (multi-printer, multi-filament, purge), extras, pricing profiles editor, policy layer, breakdown, freeze/snapshot, print view, customers (QC-1/2/4/5/6, PP-1/2/3, QO-1, JR-3) | an Excel quote re-entered by hand gives the same result with a legacy profile, and a plausible one with *Standard* |
 | **M4** ✔ | Stock: spools, ledger, weigh-in with tare presets, start at 0 (FI-5/6/6a/6b) | weigh-in on the phone works. Ledger sums are correct |
 | **M5** ✔ | Sync + offline: SyncService, GitHubAdapter, conflict dialog, PWA manifest + service worker (ST-6, NF-1) | two devices edit and sync via a private repo. App works offline |
-| **M6** | Extras: print log + stock deduction (JR-2), low stock (FI-7), price history (FI-8), part planner (QC-3), slicer file import (QC-8), DE translation, dashboard stats (JR-4) | as needed |
+| **M6a** ✔ | Print log with stock deduction, logged hours and failure rate (JR-2, MC-4), low stock + to-buy list (FI-7), backup reminder (ST-5), copy quote summary (QO-2), dashboard (JR-4, basic) | log a run from a quote plate; spool stock, printer hours and to-buy list follow |
+| **M6b** | Price history (FI-8), part planner (QC-3), slicer file import (QC-8), maintenance reminders (MC-5), what-if comparison (QC-7), DE translation | as needed |
 
 ## 9. Conventions
 

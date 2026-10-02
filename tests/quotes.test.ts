@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyDocument } from '../src/core/document';
 import type { AppDocument } from '../src/core/model';
-import { createQuote, quoteResult, setQuoteStatus } from '../src/core/quotes';
+import { createQuote, quoteResult, quoteSummaryText, setQuoteStatus } from '../src/core/quotes';
 
 const asOf = '2026-10-02';
 const now = new Date('2026-10-02T10:00:00Z');
@@ -55,5 +55,18 @@ describe('setQuoteStatus', () => {
     const q = { ...createQuote(d, { id: 'q', date: asOf }), status: 'delivered' as const };
     setQuoteStatus(d, q, 'paid', asOf, now);
     expect(q.snapshot).toBeDefined();
+  });
+});
+
+describe('quoteSummaryText', () => {
+  it('lists positions with parts and the total, without internal costs', () => {
+    const d = doc();
+    d.settings.vat.noVatNote = 'No VAT charged.';
+    const q = createQuote(d, { id: 'q', date: asOf });
+    q.title = 'Bins';
+    q.pricingProfileId = 'own-use';
+    q.plates.push({ id: 'p', name: 'Bin 1x1', printerId: 'pr', printTimeMin: 60, runs: 2, partsPerRun: 3, filaments: [{ filamentId: 'f', weightG: 300 }] });
+    const text = quoteSummaryText(d, q, quoteResult(d, q, asOf)!, (n) => `${n.toFixed(2)} €`);
+    expect(text).toBe(['Quote #1: Bins', '', '- Bin 1x1: 6 × 2.00 € = 12.00 €', '', 'Total: 12.00 €', 'No VAT charged.'].join('\n'));
   });
 });

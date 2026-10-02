@@ -2,10 +2,11 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { machineRate, reserveRatePerHour, type MachineRate } from '../../core/calc/machine-rate';
 import type { AppDocument, BaseMaterial, MachineCost, PlannedInvestment, Printer } from '../../core/model';
+import { jobStats } from '../../core/print-log';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, switchField, textField, type Option } from '../fields';
-import { money, newId, num, today } from '../format';
+import { money, newId, num, percent, today } from '../format';
 
 const STATUS: Option[] = [
   { value: 'active', label: 'Active' },
@@ -100,6 +101,7 @@ export class PrintersPage extends LitElement {
               <h3 class="h6">Hours basis</h3>
               <div>Print hours per year: <strong>${num(rate.hours.hoursPerYear)}</strong> <span class="text-body-secondary">(${rate.hours.hoursPerYearSource})</span></div>
               <div>Lifetime print hours: <strong>${num(rate.hours.lifetimeHours)}</strong> <span class="text-body-secondary">(${rate.hours.lifetimeSource})</span></div>
+              ${this.#logged(p.id)}
               ${rate.warnings.map((w) => html`<div class="alert alert-warning py-1 px-2 mt-2 mb-0">${w}</div>`)}
             </div>
           </div>
@@ -107,6 +109,13 @@ export class PrintersPage extends LitElement {
         </div>
       </section>
     `;
+  }
+
+  #logged(printerId: string) {
+    const stats = jobStats(this.#doc.printJobs.filter((j) => j.printerId === printerId));
+    if (stats.jobs === 0) return nothing;
+    return html`<div>Logged prints: <strong>${stats.jobs}</strong> (${num(stats.hours, 1)} h) · failed/cancelled:
+      <strong>${stats.failureRate === null ? '–' : percent(stats.failureRate, 1)}</strong> of print time</div>`;
   }
 
   #printerEditor(p: Printer) {
