@@ -73,6 +73,10 @@ src/
     quotes.ts                   numbering, creation with customer defaults, status + freezing (QC-5)
     stock.ts                    spool ledger, tare lookup, weigh-ins, spools from purchases, m ↔ g, to-buy list
     print-log.ts                print jobs: from quote plates, stock booking, statistics (JR-2)
+    slicer.ts                   print time + grams from G-code / binary G-code / 3MF slice info (QC-8)
+    zip.ts                      minimal ZIP reader for 3MF
+    parts.ts                    parts per run, part planner (QC-3)
+    maintenance.ts              maintenance tasks by print hours (MC-5)
   state/
     app-store.ts                AppStore + StoreController (Lit reactive controller)
     store-instance.ts
@@ -95,6 +99,8 @@ src/
     pages/customers-page.ts     customers with defaults, quote history, revenue
     pages/print-log-page.ts     print log
     pricing-profiles-editor.ts  pricing profiles (on the settings page)
+    price-history-chart.ts      €/kg per purchase over time (FI-8)
+    slicer-file.ts              reads slicer files picked by the user (head/tail, 3MF)
 tests/
   legacy-replay.test.ts         all 30 Excel rows through the new engine (6 decimals)
   filament-price.test.ts
@@ -176,7 +182,8 @@ cost, price). Any engine change that breaks it is either a bug or a deliberate, 
 | **M4** ✔ | Stock: spools, ledger, weigh-in with tare presets, start at 0 (FI-5/6/6a/6b) | weigh-in on the phone works. Ledger sums are correct |
 | **M5** ✔ | Sync + offline: SyncService, GitHubAdapter, conflict dialog, PWA manifest + service worker (ST-6, NF-1) | two devices edit and sync via a private repo. App works offline |
 | **M6a** ✔ | Print log with stock deduction, logged hours and failure rate (JR-2, MC-4), low stock + to-buy list (FI-7), backup reminder (ST-5), copy quote summary (QO-2), dashboard (JR-4, basic) | log a run from a quote plate; spool stock, printer hours and to-buy list follow |
-| **M6b** | Price history (FI-8), part planner (QC-3), slicer file import (QC-8), maintenance reminders (MC-5), what-if comparison (QC-7), DE translation | as needed |
+| **M6b** ✔ | Slicer file import (QC-8), part planner (QC-3), what-if comparison (QC-7), maintenance reminders (MC-5), price history chart (FI-8) | sheet #5 planner reproduced; G-code / 3MF import fills plates |
+| **M6c** | German UI (NF-4) | as needed |
 
 ## 9. Conventions
 

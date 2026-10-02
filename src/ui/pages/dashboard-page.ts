@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { formatDuration } from '../../core/duration';
 import type { AppDocument } from '../../core/model';
+import { maintenanceStatus } from '../../core/maintenance';
 import { quoteResult } from '../../core/quotes';
 import { stockByFilament, toBuyList } from '../../core/stock';
 import { StoreController } from '../../state/app-store';
@@ -9,6 +10,7 @@ import { store, syncManager } from '../../state/store-instance';
 import { downloadBackup, lastBackup } from '../backup';
 import { money, num, today } from '../format';
 import { filamentLabel } from './filaments/labels';
+import { dueText } from './printers-page';
 import { STATUS_COLOR } from './quotes/status';
 
 const BACKUP_WARN_DAYS = 30;
@@ -50,7 +52,7 @@ export class DashboardPage extends LitElement {
       </div>
       <div class="row g-3">
         <div class="col-lg-6">${this.#openQuotes()}</div>
-        <div class="col-lg-6">${this.#toBuy()} ${this.#recentPrints()}</div>
+        <div class="col-lg-6">${this.#maintenance()} ${this.#toBuy()} ${this.#recentPrints()}</div>
       </div>
     `;
   }
@@ -87,6 +89,19 @@ export class DashboardPage extends LitElement {
             <span class="text-body-secondary small">#${q.number}</span><span class="me-auto">${q.title}${q.customerId ? html` <span class="small text-body-secondary">· ${customer.get(q.customerId)}</span>` : nothing}</span>
             <span class="badge text-bg-${STATUS_COLOR[q.status]}">${q.status}</span><span class="small">${money(quoteResult(doc, q, asOf)?.price, cur)}</span>
           </a>`)}</div>`}
+    </section>`;
+  }
+
+  #maintenance() {
+    const doc = this.#doc;
+    const due = maintenanceStatus(doc).filter((m) => m.dueInHours !== null && m.dueInHours <= 20);
+    if (due.length === 0) return nothing;
+    const name = new Map(doc.printers.map((p) => [p.id, p.name]));
+    return html`<section class="card mb-3 border-warning">
+      <div class="card-header"><strong>Maintenance due</strong></div>
+      <ul class="list-group list-group-flush">${due.map((m) => html`<li class="list-group-item small d-flex gap-2">
+        <span class="me-auto">🔧 ${m.task} <span class="text-body-secondary">· ${name.get(m.printerId)}</span></span><span>${dueText(m.dueInHours)}</span>
+      </li>`)}</ul>
     </section>`;
   }
 

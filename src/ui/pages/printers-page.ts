@@ -1,7 +1,8 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { machineRate, reserveRatePerHour, type MachineRate } from '../../core/calc/machine-rate';
-import type { AppDocument, BaseMaterial, MachineCost, PlannedInvestment, Printer } from '../../core/model';
+import type { AppDocument, BaseMaterial, MachineCost, MaintenanceTask, PlannedInvestment, Printer } from '../../core/model';
+import { maintenanceStatus, markDone } from '../../core/maintenance';
 import { jobStats } from '../../core/print-log';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
@@ -101,7 +102,7 @@ export class PrintersPage extends LitElement {
               <h3 class="h6">Hours basis</h3>
               <div>Print hours per year: <strong>${num(rate.hours.hoursPerYear)}</strong> <span class="text-body-secondary">(${rate.hours.hoursPerYearSource})</span></div>
               <div>Lifetime print hours: <strong>${num(rate.hours.lifetimeHours)}</strong> <span class="text-body-secondary">(${rate.hours.lifetimeSource})</span></div>
-              ${this.#logged(p.id)}
+              ${this.#logged(p.id)} ${this.#maintenanceSummary(p.id)}
               ${rate.warnings.map((w) => html`<div class="alert alert-warning py-1 px-2 mt-2 mb-0">${w}</div>`)}
             </div>
           </div>
@@ -116,6 +117,39 @@ export class PrintersPage extends LitElement {
     if (stats.jobs === 0) return nothing;
     return html`<div>Logged prints: <strong>${stats.jobs}</strong> (${num(stats.hours, 1)} h) · failed/cancelled:
       <strong>${stats.failureRate === null ? '–' : percent(stats.failureRate, 1)}</strong> of print time</div>`;
+  }
+
+  #maintenanceSummary(printerId: string) {
+    const due = maintenanceStatus(this.#doc).filter((m) => m.printerId === printerId && (m.dueInHours === null || m.dueInHours <= 20));
+    return due.map((m) => html`<div class="alert alert-${m.dueInHours !== null && m.dueInHours > 0 ? 'info' : 'warning'} py-1 px-2 mt-2 mb-0">
+      🔧 ${m.task}: ${dueText(m.dueInHours)}</div>`);
+  }
+
+  #maintenance(p: Printer) {
+    const tasks = p.maintenance ?? [];
+    const status = new Map(maintenanceStatus(this.#doc).map((m) => [m.taskId, m.dueInHours]));
+    const set = (i: number, mutate: (t: MaintenanceTask) => void) => this.#printer(p.id, (x) => mutate(x.maintenance![i]!));
+    return html`
+      <h3 class="h6 mt-3">Maintenance</h3>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Task</th><th>Every (h)</th><th>Last done</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            ${tasks.map((t, i) => html`<tr>
+              <td>${cellText(t.task, (v) => set(i, (x) => (x.task = v)), { title: 'Task' })}</td>
+              <td style="width: 7rem">${cellNumber(t.everyHours, (v) => set(i, (x) => (x.everyHours = v ?? 100)), { min: 1, title: 'Interval in print hours' })}</td>
+              <td class="small text-nowrap">${t.lastDoneHours === null ? 'never' : `${num(t.lastDoneHours)} h${t.lastDoneDate ? ` (${t.lastDoneDate})` : ''}`}</td>
+              <td class="small text-nowrap">${dueText(status.get(t.id) ?? null)}</td>
+              <td class="text-nowrap">
+                <button class="btn btn-sm btn-outline-success" @click=${() => this.#update((d) => { const pr = d.printers.find((x) => x.id === p.id)!; markDone(d, pr, pr.maintenance![i]!, today()); })}>Done</button>
+                <button class="btn btn-sm btn-link text-danger" title="Remove" @click=${() => this.#printer(p.id, (x) => x.maintenance!.splice(i, 1))}>✕</button>
+              </td>
+            </tr>`)}
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-sm btn-outline-primary" @click=${() => this.#printer(p.id, (x) => (x.maintenance ??= []).push({ id: newId(), task: 'New task', everyHours: 200, lastDoneHours: null }))}>+ Add task</button>
+    `;
   }
 
   #printerEditor(p: Printer) {
@@ -141,7 +175,7 @@ export class PrintersPage extends LitElement {
           ${numberField('Purchase price', p.purchasePrice ?? 0, (v) => set((x) => (x.purchasePrice = v || undefined)), { suffix: this.#doc.settings.currency, min: 0 })}
         </div>
       </div>
-      ${this.#powerProfiles(p)} ${this.#usageStats(p)} ${this.#machineCosts(p)}
+      ${this.#powerProfiles(p)} ${this.#usageStats(p)} ${this.#maintenance(p)} ${this.#machineCosts(p)}
       <button class="btn btn-sm btn-outline-danger mt-2" @click=${() => this.#deletePrinter(p)}>Delete printer</button>
     `;
   }
@@ -327,4 +361,9 @@ export class PrintersPage extends LitElement {
     });
     this.editing = null;
   }
+}
+
+export function dueText(dueInHours: number | null): string {
+  if (dueInHours === null) return 'not recorded yet: press "Done" after doing it';
+  return dueInHours <= 0 ? `overdue by ${Math.round(-dueInHours)} h` : `due in ${Math.round(dueInHours)} h`;
 }

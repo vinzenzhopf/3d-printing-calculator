@@ -4,13 +4,17 @@ import type { QuoteResult } from '../../../core/calc/quote';
 import { formatDuration, parseDuration } from '../../../core/duration';
 import type { AppDocument, Plate, Quote, QuoteExtra, QuoteStatus } from '../../../core/model';
 import { jobFromPlate } from '../../../core/print-log';
-import { QUOTE_STATUSES, createQuote, freezeQuote, quoteResult, quoteSummaryText, setQuoteStatus } from '../../../core/quotes';
+import { QUOTE_STATUSES, compareQuote, createQuote, freezeQuote, quoteResult, quoteSummaryText, setQuoteStatus } from '../../../core/quotes';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
 import { money, newId, num, percent, today } from '../../format';
 import { SOURCE_LABEL, filamentOptions } from '../filaments/labels';
 import { STATUS_COLOR } from './status';
+import { partsPerRun, planParts } from '../../../core/parts';
+import { applyEstimate } from '../../../core/slicer';
+import { DEFAULT_DENSITY, metersToGrams } from '../../../core/stock';
+import { readSlicerFile } from '../../slicer-file';
 import { openPrintLogWith } from '../print-log-page';
 import './quote-offer';
 
@@ -18,6 +22,7 @@ import './quote-offer';
 export class QuoteEditor extends LitElement {
   @property() quoteId = '';
   @state() private copied = false;
+  @state() private importNote: { plateId: string; text: string; error: boolean } | null = null;
   #store = new StoreController(this, store());
 
   protected override createRenderRoot() {
@@ -74,7 +79,7 @@ export class QuoteEditor extends LitElement {
             <fieldset ?disabled=${frozen}>
               ${this.#header(quote)} ${quote.plates.map((p, i) => this.#plateCard(p, i, result))}
               <button class="btn btn-outline-primary mb-3" @click=${this.#addPlate}>+ Add plate</button>
-              ${this.#extras(quote)}
+              ${this.#planner(quote)} ${this.#extras(quote)}
             </fieldset>
             ${textAreaField('Notes', quote.notes ?? '', (v) => this.#set((q) => (q.notes = v || undefined)))}
           </div>
@@ -139,7 +144,9 @@ export class QuoteEditor extends LitElement {
                   else this.#plate(plate.id, (p) => (p.printTimeMin = min));
                 }} /></label></div>
             <div class="col-md-2"><label class="small d-block">Runs${cellNumber(plate.runs, (v) => this.#plate(plate.id, (p) => (p.runs = v ?? 1)), { min: 0, step: 1, title: 'Runs' })}</label></div>
-            <div class="col-md-3"><label class="small d-block">Parts per run${cellNumber(plate.partsPerRun ?? 1, (v) => this.#plate(plate.id, (p) => (p.partsPerRun = v && v !== 1 ? v : undefined)), { min: 1, step: 1, title: 'Parts per run' })}</label></div>
+            <div class="col-md-3">${plate.parts?.length
+              ? html`<div class="small">Parts per run</div><div class="pt-1">${partsPerRun(plate)} <span class="small text-body-secondary">(from list)</span></div>`
+              : html`<label class="small d-block">Parts per run${cellNumber(plate.partsPerRun ?? 1, (v) => this.#plate(plate.id, (p) => (p.partsPerRun = v && v !== 1 ? v : undefined)), { min: 1, step: 1, title: 'Parts per run' })}</label>`}</div>
           </div>
           <table class="table table-sm align-middle mb-2">
             <thead><tr><th>Filament</th><th style="width: 8rem">g per run</th><th></th></tr></thead>
@@ -151,7 +158,17 @@ export class QuoteEditor extends LitElement {
               </tr>`)}
             </tbody>
           </table>
-          <button class="btn btn-sm btn-outline-primary" @click=${() => this.#plate(plate.id, (p) => p.filaments.push({ filamentId: '', weightG: 0 }))}>+ Filament</button>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button class="btn btn-sm btn-outline-primary" @click=${() => this.#plate(plate.id, (p) => p.filaments.push({ filamentId: '', weightG: 0 }))}>+ Filament</button>
+            <label class="btn btn-sm btn-outline-secondary mb-0" title="Read print time and grams from G-code, binary G-code or a sliced 3MF (parsed locally)">
+              Import slicer file…
+              <input type="file" hidden accept=".gcode,.gco,.bgcode,.3mf" @change=${(e: Event) => this.#importSlicer(plate.id, e)} />
+            </label>
+            ${this.importNote?.plateId === plate.id
+              ? html`<span class="small ${this.importNote.error ? 'text-danger' : 'text-success'}">${this.importNote.text}</span>`
+              : nothing}
+          </div>
+          ${this.#partList(plate)}
           ${multi
             ? html`<div class="row g-2 mt-1">
                 <div class="col-md-4"><label class="small d-block">Purge / wipe tower (g, from slicer)${cellNumber(plate.purgeG ?? null, (v) => this.#plate(plate.id, (p) => (v === null ? delete p.purgeG : (p.purgeG = v))), { min: 0, allowEmpty: true, title: 'Purge grams' })}</label></div>
@@ -161,6 +178,64 @@ export class QuoteEditor extends LitElement {
         </div>
       </section>
     `;
+  }
+
+  #partList(plate: Plate) {
+    const parts = plate.parts ?? [];
+    const names = [...new Set((this.#quote?.requiredParts ?? []).map((r) => r.name))];
+    const set = (mutate: (p: Plate) => void) => this.#plate(plate.id, mutate);
+    return html`<details class="mt-2" ?open=${parts.length > 0}>
+      <summary class="small">Parts on this plate${parts.length ? ` (${partsPerRun(plate)} per run)` : ''}</summary>
+      <datalist id="parts-${plate.id}">${names.map((n) => html`<option value=${n}></option>`)}</datalist>
+      <table class="table table-sm align-middle mb-1 mt-1">
+        <tbody>
+          ${parts.map((part, i) => html`<tr>
+            <td><input class="form-control form-control-sm" list="parts-${plate.id}" aria-label="Part name" .value=${part.name}
+              @change=${(e: Event) => set((p) => (p.parts![i]!.name = (e.target as HTMLInputElement).value.trim()))} /></td>
+            <td style="width: 7rem">${cellNumber(part.quantity, (v) => set((p) => (p.parts![i]!.quantity = v ?? 1)), { min: 1, step: 1, title: 'Quantity per run' })}</td>
+            <td style="width: 2rem"><button class="btn btn-sm btn-link text-danger" title="Remove part" @click=${() => set((p) => { p.parts!.splice(i, 1); if (!p.parts!.length) delete p.parts; })}>✕</button></td>
+          </tr>`)}
+        </tbody>
+      </table>
+      <button class="btn btn-sm btn-outline-secondary" @click=${() => set((p) => (p.parts ??= []).push({ name: '', quantity: 1 }))}>+ Part</button>
+    </details>`;
+  }
+
+  #planner(quote: Quote) {
+    const required = quote.requiredParts ?? [];
+    const rows = planParts(quote);
+    const hasParts = quote.plates.some((p) => p.parts?.length);
+    const set = (mutate: (q: Quote) => void) => this.#set(mutate);
+    if (!required.length && !hasParts) {
+      return html`<p class="small"><button class="btn btn-sm btn-link p-0" @click=${() => set((q) => (q.requiredParts = [{ name: '', quantity: 1 }]))}>+ Part planner</button>
+        <span class="text-body-secondary">: list the parts the customer needs and check that your plates cover them.</span></p>`;
+    }
+    return html`<section class="card card-body mb-3">
+      <h2 class="h6">Part planner</h2>
+      <div class="row g-3">
+        <div class="col-md-5">
+          <div class="small text-body-secondary mb-1">Required</div>
+          ${required.map((r, i) => html`<div class="input-group input-group-sm mb-1">
+            <input class="form-control" aria-label="Required part" .value=${r.name} @change=${(e: Event) => set((q) => (q.requiredParts![i]!.name = (e.target as HTMLInputElement).value.trim()))} />
+            ${cellNumber(r.quantity, (v) => set((q) => (q.requiredParts![i]!.quantity = v ?? 0)), { min: 0, step: 1, width: '5rem', title: 'Required quantity' })}
+            <button class="btn btn-outline-danger" title="Remove" @click=${() => set((q) => q.requiredParts!.splice(i, 1))}>✕</button>
+          </div>`)}
+          <button class="btn btn-sm btn-outline-secondary" @click=${() => set((q) => (q.requiredParts ??= []).push({ name: '', quantity: 1 }))}>+ Required part</button>
+        </div>
+        <div class="col-md-7">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Part</th><th class="text-end">Required</th><th class="text-end">Planned</th><th class="text-end">Diff</th></tr></thead>
+            <tbody>
+              ${rows.map((r) => html`<tr class=${r.diff < 0 ? 'table-danger' : r.diff > 0 ? 'table-warning' : 'table-success'}>
+                <td>${r.name}</td><td class="text-end">${r.required}</td><td class="text-end">${r.planned}</td>
+                <td class="text-end fw-semibold">${r.diff > 0 ? '+' : ''}${r.diff}</td>
+              </tr>`)}
+            </tbody>
+          </table>
+          <div class="small text-body-secondary mt-1">Planned = parts per run × runs, from each plate's part list.</div>
+        </div>
+      </div>
+    </section>`;
   }
 
   #extras(quote: Quote) {
@@ -220,6 +295,7 @@ export class QuoteEditor extends LitElement {
             <div>Filament: ${num(r.plates.reduce((s, p) => s + p.filamentG, 0))} g</div>
           </div>
           ${r.warnings.map((w) => html`<div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">${w}</div>`)}
+          ${this.#comparison()}
           ${r.prices.length
             ? html`<details class="mt-2 small"><summary>Filament prices used</summary>
                 <ul class="mb-0">${r.prices.map((p) => html`<li>${filamentName.get(p.filamentId) ?? p.filamentId}: ${money(p.pricePerKg, cur)}/kg (${SOURCE_LABEL[p.source]}${p.stale ? ', stale' : ''})</li>`)}</ul>
@@ -230,12 +306,69 @@ export class QuoteEditor extends LitElement {
     `;
   }
 
+  async #importSlicer(plateId: string, e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const estimates = await readSlicerFile(file);
+      const doc = this.#doc;
+      const name = file.name.replace(/(\.gcode)?\.(3mf|b?gcode|gco)$/i, '');
+      // Cura reports meters: convert with the slot's filament (density, diameter), else PLA defaults.
+      const gramsPerMeter = (plate: Plate) => (slot: number) => {
+        const f = doc.filaments.find((x) => x.id === plate.filaments[slot]?.filamentId);
+        const line = doc.productLines.find((l) => l.id === f?.productLineId);
+        return metersToGrams(1, line?.densityGcm3 ?? DEFAULT_DENSITY[line?.baseMaterial ?? 'PLA'] ?? 1.24, line?.diameterMm ?? 1.75);
+      };
+      await this.#store.store.update((d) => {
+        const q = d.quotes.find((x) => x.id === this.quoteId)!;
+        const index = q.plates.findIndex((p) => p.id === plateId);
+        const first = q.plates[index]!;
+        applyEstimate(first, estimates[0]!, gramsPerMeter(first), estimates.length > 1 ? `${name} (1)` : name);
+        // Further plates of a multi-plate 3MF become new quote plates.
+        estimates.slice(1).forEach((est, i) => {
+          const plate: Plate = { id: newId(), name: `Plate ${q.plates.length + 1}`, printerId: first.printerId, printTimeMin: 0, runs: 1, filaments: first.filaments.map((f) => ({ filamentId: f.filamentId, weightG: 0 })) };
+          applyEstimate(plate, est, gramsPerMeter(plate), `${name} (${i + 2})`);
+          q.plates.splice(index + 1 + i, 0, plate);
+        });
+      });
+      const e0 = estimates[0]!;
+      this.importNote = {
+        plateId,
+        error: false,
+        text: `${e0.slicer}: ${e0.printTimeMin === null ? '?' : formatDuration(e0.printTimeMin)} h${estimates.length > 1 ? `, ${estimates.length} plates imported` : ''}${e0.filamentTypes.length ? ` · ${e0.filamentTypes.join(' / ')}` : ''}. Check the filament rows.`,
+      };
+    } catch (err) {
+      this.importNote = { plateId, error: true, text: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   #copySummary(result: QuoteResult) {
     const cur = this.#doc.settings.currency;
     void navigator.clipboard.writeText(quoteSummaryText(this.#doc, this.#quote!, result, (n) => money(n, cur))).then(() => {
       this.copied = true;
       setTimeout(() => (this.copied = false), 2000);
     });
+  }
+
+  #comparison() {
+    const quote = this.#quote!;
+    if (quote.snapshot || quote.plates.length === 0) return nothing;
+    const cur = this.#doc.settings.currency;
+    const c = compareQuote(this.#doc, quote, today());
+    const plateIds = new Set(quote.plates.map((p) => p.printerId));
+    const table = (rows: typeof c.profiles, current: (id: string) => boolean) => html`<table class="table table-sm mb-2">
+      <tbody>${rows.map((row) => html`<tr class=${current(row.id) ? 'fw-semibold' : ''}><td>${row.name}</td><td class="text-end">${row.warnings.length ? html`<span class="text-warning" title=${row.warnings.join(' · ')}>⚠ </span>` : nothing}${money(row.price, cur)}</td></tr>`)}</tbody>
+    </table>`;
+    return html`<details class="mt-2 small">
+      <summary>Compare profiles and printers</summary>
+      <div class="mt-2 text-body-secondary">Pricing profile</div>
+      ${table(c.profiles, (id) => id === quote.pricingProfileId)}
+      <div class="text-body-secondary">All plates on…</div>
+      ${table(c.printers, (id) => plateIds.size === 1 && plateIds.has(id))}
+      ${[...c.profiles, ...c.printers].some((x) => x.warnings.length) ? html`<div class="text-body-secondary">⚠ incomplete: hover for details (e.g. missing power table).</div>` : nothing}
+    </details>`;
   }
 
   #status(status: QuoteStatus) {

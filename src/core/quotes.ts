@@ -70,3 +70,34 @@ export function quoteSummaryText(doc: AppDocument, quote: Quote, result: QuoteRe
   if (!s.vat.enabled && s.vat.noVatNote) lines.push(s.vat.noVatNote);
   return lines.join('\n');
 }
+
+export interface Comparison {
+  id: Id;
+  name: string;
+  /** Price as shown to the customer; null when it can't be calculated. */
+  price: number | null;
+  cost: number | null;
+  /** Calculation warnings (e.g. no power profile on a planned printer): the number is incomplete. */
+  warnings: string[];
+}
+
+/**
+ * What-if (QC-7): the quote's price with every pricing profile, and with all
+ * plates moved to each printer that is not retired (incl. planned ones).
+ */
+export function compareQuote(doc: AppDocument, quote: Quote, asOf: IsoDate): { profiles: Comparison[]; printers: Comparison[] } {
+  const run = (q: Quote) => {
+    try {
+      const r = calculateQuote(doc, q, asOf);
+      return { price: r.price, cost: r.cost, warnings: r.warnings.filter((w) => !w.startsWith('Price is below')) };
+    } catch (e) {
+      return { price: null, cost: null, warnings: [e instanceof Error ? e.message : String(e)] };
+    }
+  };
+  return {
+    profiles: doc.pricingProfiles.map((p) => ({ id: p.id, name: p.name, ...run({ ...quote, pricingProfileId: p.id }) })),
+    printers: doc.printers
+      .filter((p) => p.status !== 'retired')
+      .map((p) => ({ id: p.id, name: p.name, ...run({ ...quote, plates: quote.plates.map((pl) => ({ ...pl, printerId: p.id })) }) })),
+  };
+}

@@ -1,12 +1,14 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { addMonths } from '../../../core/calc/filament-price';
-import { linePrices, resolveFilamentPrice, type ResolvedPrice } from '../../../core/calc/price-resolution';
+import { linePrices, packClass, resolveFilamentPrice, type ResolvedPrice } from '../../../core/calc/price-resolution';
 import type { AppDocument, ManualPrice, ProductLine } from '../../../core/model';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber } from '../../fields';
 import { money, percent, today } from '../../format';
+import '../../price-history-chart';
+import type { PricePoint } from '../../price-history-chart';
 import { lineLabel, priceCell } from './labels';
 
 @customElement('price-list')
@@ -89,8 +91,19 @@ export class PriceList extends LitElement {
         <td class="text-nowrap">${priceCell(computed.multi, cur)}</td>
         ${this.#manualCells(line.manualPrice, best?.pricePerKg ?? null, setManual, asOf)}
       </tr>
+      ${isOpen ? html`<tr><td colspan="7">${this.#history(line)}</td></tr>` : nothing}
       ${isOpen ? this.#colorRows(line, asOf) : nothing}
     `;
+  }
+
+  #history(line: ProductLine) {
+    const doc = this.#doc;
+    const color = new Map(doc.filaments.filter((f) => f.productLineId === line.id).map((f) => [f.id, f.color]));
+    const points: PricePoint[] = doc.purchases
+      .filter((p) => color.has(p.filamentId) && p.totalKg > 0)
+      .map((p) => ({ date: p.date, pricePerKg: p.totalPrice / p.totalKg, kg: p.totalKg, series: packClass(p), label: color.get(p.filamentId)! }));
+    return html`<div class="py-2"><div class="small fw-semibold mb-1">${lineLabel(line)}: price per kg per purchase</div>
+      <price-history-chart .points=${points} .currency=${doc.settings.currency}></price-history-chart></div>`;
   }
 
   #colorRows(line: ProductLine, asOf: string) {

@@ -1,4 +1,5 @@
 import type { AppDocument, Id, IsoDate, PricingProfile, Quote } from '../model';
+import { partsPerRun } from '../parts';
 import { machineRate } from './machine-rate';
 import { computePlateCost, type CostBreakdown } from './plate-cost';
 import { resolveFilamentPrice, type PriceSource } from './price-resolution';
@@ -122,7 +123,7 @@ function calculate(doc: AppDocument, quote: Quote, profile: PricingProfile, asOf
       },
     );
     warnings.push(...cost.warnings.map((w) => `${plate.name}: ${w}`));
-    const parts = Math.max(plate.runs, 0) * (plate.partsPerRun ?? 1);
+    const parts = Math.max(plate.runs, 0) * partsPerRun(plate);
     plates.push({
       plateId: plate.id,
       name: plate.name,

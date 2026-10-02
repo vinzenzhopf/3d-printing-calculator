@@ -115,6 +115,17 @@ export interface Printer {
   /** Keyed by MaterialProfile id. */
   powerProfiles: Record<Id, PowerProfile>;
   usageStats?: UsageSnapshot[];
+  maintenance?: MaintenanceTask[];
+}
+
+/** Recurring maintenance by print hours (MC-5), e.g. "Lubricate rods every 200 h". */
+export interface MaintenanceTask {
+  id: Id;
+  task: string;
+  everyHours: number;
+  /** Printer hour counter when last done; null = never recorded. */
+  lastDoneHours: number | null;
+  lastDoneDate?: IsoDate;
 }
 
 /** A print-hour counter reading, e.g. from OctoPrint or the printer's statistics menu (MC-4). */
@@ -302,6 +313,11 @@ export interface Customer {
   notes?: string;
 }
 
+export interface PartCount {
+  name: string;
+  quantity: number;
+}
+
 export interface PlateFilament {
   filamentId: Id;
   weightG: number;
@@ -313,8 +329,10 @@ export interface Plate {
   printerId: Id;
   printTimeMin: number;
   runs: number;
-  /** Parts produced per run, for the cost per part. */
+  /** Parts produced per run, for the cost per part (ignored when `parts` is set). */
   partsPerRun?: number;
+  /** What one run produces, by part name (QC-3). */
+  parts?: PartCount[];
   filaments: PlateFilament[];
   /** Multi-material purge/wipe for the whole plate as reported by the slicer, grams. */
   purgeG?: number;
@@ -347,6 +365,8 @@ export interface Quote {
   status: QuoteStatus;
   plates: Plate[];
   extras?: QuoteExtra[];
+  /** Parts the customer needs, for the part planner (QC-3). */
+  requiredParts?: PartCount[];
   discountPercent?: number;
   notes?: string;
   /** Result frozen when the quote left draft status (QC-5). Shown instead of a live recalculation. */

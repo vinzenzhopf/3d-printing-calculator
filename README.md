@@ -21,10 +21,13 @@ use (installable as an app). See the [milestones](docs/implementation-plan.md#8-
 
 ## Features
 
-- Quotes with multiple plates, printers and filaments per plate, extras, and a printable offer
+- Quotes with multiple plates, printers and filaments per plate, extras, a part planner, and a printable offer
+- Import print time and grams from slicer files (PrusaSlicer, OrcaSlicer, Bambu Studio, Cura; G-code, binary G-code, 3MF)
+- Compare a quote across pricing profiles and printers
 - Pricing profiles: components, failure allowance, markup, minimum price, rounding, optional VAT
 - Filament price based on recent purchases or a manual price list
-- Machine cost per hour, including a reserve for your next printer
+- Machine cost per hour, including a reserve for your next printer; maintenance reminders by print hours
+- Filament price history per product line
 - Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets, low-stock list
 - Print log: deducts filament from spools, tracks printer hours and your real failure rate
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
