@@ -8,6 +8,7 @@ import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { numberField, switchField, textAreaField, textField } from '../fields';
 import '../pricing-profiles-editor';
+import '../sync-settings';
 
 @customElement('settings-page')
 export class SettingsPage extends LitElement {
@@ -30,7 +31,10 @@ export class SettingsPage extends LitElement {
         <div class="col-lg-6">${this.#business(s)} ${this.#vat(s)}</div>
       </div>
       <pricing-profiles-editor></pricing-profiles-editor>
-      <div class="mt-4">${this.#data()}</div>
+      <div class="row g-3 mt-2">
+        <div class="col-lg-6">${this.#data()}</div>
+        <div class="col-lg-6"><sync-settings></sync-settings></div>
+      </div>
     `;
   }
 

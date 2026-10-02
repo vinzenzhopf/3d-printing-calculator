@@ -1,7 +1,7 @@
-import { LitElement, html } from 'lit';
+import { LitElement, html, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { StoreController } from '../state/app-store';
-import { store } from '../state/store-instance';
+import { store, syncManager } from '../state/store-instance';
 import { HashRouter, ROUTES } from './router';
 import './pages/dashboard-page';
 import './pages/settings-page';
@@ -14,6 +14,17 @@ import './pages/customers-page';
 export class AppShell extends LitElement {
   #router = new HashRouter(this);
   #store = new StoreController(this, store());
+  #onSync = () => this.requestUpdate();
+
+  override connectedCallback() {
+    super.connectedCallback();
+    syncManager().addEventListener('change', this.#onSync);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    syncManager().removeEventListener('change', this.#onSync);
+  }
 
   // Render into the light DOM so the global Bootstrap CSS applies.
   protected override createRenderRoot() {
@@ -26,7 +37,10 @@ export class AppShell extends LitElement {
       <nav class="navbar navbar-expand bg-body border-bottom mb-3 d-print-none">
         <div class="container flex-wrap">
           <a class="navbar-brand" href="#/dashboard">3D Print Calc</a>
-          <span class="badge text-bg-${statusColor(status)} order-md-last" title=${error ?? ''}>${status}</span>
+          <span class="d-flex gap-1 order-md-last">
+            ${this.#syncBadge()}
+            <span class="badge text-bg-${statusColor(status)}" title=${error ?? 'Saved in this browser'}>${status}</span>
+          </span>
           <ul class="navbar-nav app-nav">
             ${ROUTES.map(
               (r) => html`<li class="nav-item">
@@ -38,6 +52,20 @@ export class AppShell extends LitElement {
       </nav>
       <main class="container pb-5">${this.#page()}</main>
     `;
+  }
+
+  #syncBadge() {
+    const m = syncManager();
+    if (!m.config) return nothing;
+    const s = m.service;
+    const [color, text] = m.locked ? ['warning', 'sync locked']
+      : !s ? ['secondary', 'sync']
+      : s.status === 'conflict' ? ['danger', 'sync conflict']
+      : s.status === 'error' ? ['danger', 'sync error']
+      : s.status === 'syncing' ? ['info', 'syncing…']
+      : s.hasLocalChanges ? ['secondary', 'unsynced']
+      : ['success', 'synced'];
+    return html`<a class="badge text-bg-${color} text-decoration-none" href="#/settings" title=${s?.error ?? 'Sync settings'}>☁ ${text}</a>`;
   }
 
   #page() {

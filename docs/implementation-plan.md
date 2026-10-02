@@ -75,10 +75,13 @@ src/
   state/
     app-store.ts                AppStore + StoreController (Lit reactive controller)
     store-instance.ts
+    sync.ts                     SyncService: pull / push / conflict against the last synced state
+    sync-manager.ts             per-device sync config + token, automatic triggers
   storage/
     adapter.ts                  StorageAdapter contract
     browser-adapter.ts          IndexedDB
     memory-adapter.ts           tests / reference
+    github-adapter.ts           private GitHub repo via the Contents API (version = blob sha)
   ui/
     app-shell.ts                navbar, status badge, page switch
     router.ts                   hash routing (#/quotes ...), so no 404 tricks on GitHub Pages
@@ -97,6 +100,8 @@ tests/
   storage-adapters.test.ts      one contract suite, run against every adapter
   fixtures/legacy-quotes.json   anonymized (numbers + part names only, no customers)
 tools/extract_excel.py          Excel → data/seed/*.json (private) + test fixture
+tools/make_icons.py             app icons (public/icons)
+pwa/sw.js                       service worker template; vite.config.ts injects the precache list
 .github/workflows/pages.yml     test → build → deploy on push to main
 ```
 
@@ -167,7 +172,7 @@ cost, price). Any engine change that breaks it is either a bug or a deliberate, 
 | **M2** ✔ | Catalog: printers + power profiles + machine costs + reserve (MC-1/2/3/4/8), product lines with aliases, filaments, purchases with bundles/gifts (FI-1/2/4/4a), **price list page** (FI-10/11) | machine €/h and filament €/kg shown with their derivation, matching the requirements' examples |
 | **M3** ✔ | Quotes: plates (multi-printer, multi-filament, purge), extras, pricing profiles editor, policy layer, breakdown, freeze/snapshot, print view, customers (QC-1/2/4/5/6, PP-1/2/3, QO-1, JR-3) | an Excel quote re-entered by hand gives the same result with a legacy profile, and a plausible one with *Standard* |
 | **M4** ✔ | Stock: spools, ledger, weigh-in with tare presets, start at 0 (FI-5/6/6a/6b) | weigh-in on the phone works. Ledger sums are correct |
-| **M5** | Sync + offline: SyncService, GitHubAdapter, conflict dialog, PWA manifest + service worker (ST-6, NF-1) | two devices edit and sync via a private repo. App works offline |
+| **M5** ✔ | Sync + offline: SyncService, GitHubAdapter, conflict dialog, PWA manifest + service worker (ST-6, NF-1) | two devices edit and sync via a private repo. App works offline |
 | **M6** | Extras: print log + stock deduction (JR-2), low stock (FI-7), price history (FI-8), part planner (QC-3), slicer file import (QC-8), DE translation, dashboard stats (JR-4) | as needed |
 
 ## 9. Conventions

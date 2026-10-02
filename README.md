@@ -16,7 +16,8 @@ private GitHub repository.
 
 Early development. Quotes (multi-plate, multi-filament, pricing profiles, freezing, printable offer), customers,
 printers with machine cost per hour, the filament catalog with purchases and price list, and JSON export/import
-work, as do spool stock and weigh-ins with empty-spool presets. Next: sync and offline support. See the [milestones](docs/implementation-plan.md#8-milestones).
+work, as do spool stock and weigh-ins with empty-spool presets, sync via a private GitHub repository, and offline
+use (installable as an app). See the [milestones](docs/implementation-plan.md#8-milestones).
 
 ## Features (planned)
 
@@ -26,6 +27,20 @@ work, as do spool stock and weigh-ins with empty-spool presets. Next: sync and o
 - Machine cost per hour, including a reserve for your next printer
 - Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
+- Works offline and can be installed as an app
+
+## Your data
+
+Everything is stored in your browser (IndexedDB). Use **Settings → Data → Export** for backups. To use the app on
+several devices, connect **Settings → Sync** to a private GitHub repository you own:
+
+1. Create an empty **private** repository.
+2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with access to only that
+   repository and the permission *Contents: Read and write*.
+3. Enter owner, repository and token in the app, test, connect.
+
+The token stays on your device and is only sent to `api.github.com`. Every sync is a commit, so older versions can be
+restored from the repository history. When two devices changed the data, the app asks which version to keep.
 
 ## Getting started
 

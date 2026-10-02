@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyDocument } from '../src/core/document';
 import type { StorageAdapter } from '../src/storage/adapter';
 import { BrowserAdapter } from '../src/storage/browser-adapter';
+import { GitHubAdapter, decodeBase64Utf8, encodeBase64Utf8 } from '../src/storage/github-adapter';
 import { MemoryAdapter } from '../src/storage/memory-adapter';
+import { fakeGitHub } from './fake-github';
+
+const github = (token = 'good-token') =>
+  new GitHubAdapter({ owner: 'me', repo: 'data', branch: '', path: 'data/3dpc.json', token }, fakeGitHub().fetchFn);
 
 /** Every adapter must pass the same contract. */
 const adapters: [string, () => StorageAdapter][] = [
   ['MemoryAdapter', () => new MemoryAdapter()],
   ['BrowserAdapter', () => new BrowserAdapter(`test-${crypto.randomUUID()}`)],
+  ['GitHubAdapter', () => github()],
 ];
 
 describe.each(adapters)('%s contract', (_name, make) => {
@@ -45,5 +51,24 @@ describe.each(adapters)('%s contract', (_name, make) => {
     const adapter = make();
     await adapter.save(createEmptyDocument(), null);
     expect((await adapter.save(createEmptyDocument(), null)).ok).toBe(false);
+  });
+});
+
+describe('GitHubAdapter specifics', () => {
+  it('round-trips non-ASCII text through base64', () => {
+    const text = 'Weiß, Grün, Ø 1,75 mm, 🔒';
+    expect(decodeBase64Utf8(encodeBase64Utf8(text))).toBe(text);
+  });
+
+  it('explains auth errors', async () => {
+    const adapter = new GitHubAdapter({ owner: 'me', repo: 'data', branch: '', path: 'x.json', token: 'wrong' }, fakeGitHub().fetchFn);
+    await expect(adapter.load()).rejects.toThrow(/Token invalid or expired/);
+  });
+
+  it('checks repo access and whether the file exists', async () => {
+    const adapter = github();
+    expect(await adapter.check()).toEqual({ private: true, canWrite: true, fileExists: false });
+    await adapter.save(createEmptyDocument(), null);
+    expect((await adapter.check()).fileExists).toBe(true);
   });
 });

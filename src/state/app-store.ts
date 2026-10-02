@@ -48,13 +48,17 @@ export class AppStore extends EventTarget {
     return this.#commit(next);
   }
 
-  /** Replace the whole document (import, reset). Resolves when saved. */
-  replaceDocument(doc: AppDocument): Promise<void> {
-    return this.#commit(structuredClone(doc));
+  /**
+   * Replace the whole document (import, reset, sync pull). Resolves when saved.
+   * keepUpdatedAt: keep the document's own timestamp (a pulled remote copy is not a local change).
+   */
+  replaceDocument(doc: AppDocument, opts: { keepUpdatedAt?: boolean } = {}): Promise<void> {
+    return this.#commit(structuredClone(doc), opts.keepUpdatedAt);
   }
 
-  #commit(next: AppDocument): Promise<void> {
-    next.updatedAt = new Date().toISOString();
+  #commit(next: AppDocument, keepUpdatedAt = false): Promise<void> {
+    // Strictly increasing, so every local change is visible to sync even within the same millisecond.
+    if (!keepUpdatedAt) next.updatedAt = new Date(Math.max(Date.now(), (Date.parse(this.doc.updatedAt) || 0) + 1)).toISOString();
     this.doc = next;
     this.#dirty = true;
     this.#set('saving');
