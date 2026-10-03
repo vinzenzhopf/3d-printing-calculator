@@ -9,6 +9,7 @@ import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
 import { money, newId, num, percent, today } from '../../format';
+import { pickFilament } from '../../filament-picker';
 import { SOURCE_LABEL, filamentOptions } from '../filaments/labels';
 import { STATUS_COLOR } from './status';
 import { partsPerRun, planParts } from '../../../core/parts';
@@ -117,7 +118,6 @@ export class QuoteEditor extends LitElement {
   #plateCard(plate: Plate, index: number, result: QuoteResult | null) {
     const doc = this.#doc;
     const printers: Option[] = doc.printers.filter((p) => p.status !== 'retired' || p.id === plate.printerId).map((p) => ({ value: p.id, label: `${p.name}${p.status === 'planned' ? ' (planned)' : ''}` }));
-    const filamentOpts: Option[] = [{ value: '', label: 'Filament…' }, ...filamentOptions(doc)];
     const r = result?.plates.find((p) => p.plateId === plate.id);
     const cur = doc.settings.currency;
     const multi = plate.filaments.length > 1;
@@ -152,7 +152,7 @@ export class QuoteEditor extends LitElement {
             <thead><tr><th>Filament</th><th style="width: 8rem">g per run</th><th></th></tr></thead>
             <tbody>
               ${plate.filaments.map((f, i) => html`<tr>
-                <td>${cellSelect(f.filamentId, filamentOpts, (v) => this.#plate(plate.id, (p) => (p.filaments[i]!.filamentId = v)), true, 'Filament')}</td>
+                <td style="min-width: 18rem">${pickFilament(f.filamentId, (v) => this.#plate(plate.id, (p) => (p.filaments[i]!.filamentId = v)))}</td>
                 <td>${cellNumber(f.weightG, (v) => this.#plate(plate.id, (p) => (p.filaments[i]!.weightG = v ?? 0)), { min: 0, step: 0.01, title: 'Grams' })}</td>
                 <td><button class="btn btn-sm btn-link text-danger" title="Remove filament" @click=${() => this.#plate(plate.id, (p) => p.filaments.splice(i, 1))}>✕</button></td>
               </tr>`)}

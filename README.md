@@ -1,5 +1,7 @@
 # 3D Printing Calculator
 
+**▶ Open the app: https://vinzenzhopf.github.io/3d-printing-calculator/**
+
 > [!WARNING]
 > **This is a vibe-coded app.** It was built largely with an AI coding assistant, with a human steering the
 > requirements and reviewing the results. The calculations are covered by tests, but expect rough edges. Check the

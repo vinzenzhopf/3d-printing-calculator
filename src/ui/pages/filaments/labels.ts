@@ -42,3 +42,18 @@ export function swatch(hex: string | undefined) {
     style="width:1rem;height:1rem;background:${hex || 'transparent'}"
   ></span>`;
 }
+
+/** Stores used before, most recently used first (purchases and machine costs). */
+export function storeSuggestions(doc: AppDocument): string[] {
+  const last = new Map<string, string>();
+  for (const x of [...doc.purchases, ...doc.machineCosts]) {
+    const name = x.store?.trim();
+    if (name && (last.get(name) ?? '') < x.date) last.set(name, x.date);
+  }
+  return [...last.entries()].sort((a, b) => b[1].localeCompare(a[1])).map(([name]) => name);
+}
+
+/** `<datalist>` for store inputs (`list="stores"`). */
+export function storeDatalist(doc: AppDocument) {
+  return html`<datalist id="stores">${storeSuggestions(doc).map((s) => html`<option value=${s}></option>`)}</datalist>`;
+}

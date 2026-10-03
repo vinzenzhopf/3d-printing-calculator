@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { printerHours } from '../src/core/calc/machine-rate';
 import { createEmptyDocument } from '../src/core/document';
 import type { AppDocument, Plate, Printer, PrintJob, Spool } from '../src/core/model';
-import { addJob, jobFromPlate, jobStats, removeJob, suggestSpool } from '../src/core/print-log';
+import { addJob, jobFromPlate, jobStats, removeJob, replaceJob, suggestSpool } from '../src/core/print-log';
 import { remainingG, toBuyList } from '../src/core/stock';
 
 const date = '2026-10-02';
@@ -64,6 +64,19 @@ describe('print log', () => {
     removeJob(d, 'j');
     expect(d.printJobs).toEqual([]);
     expect(remainingG(d.spools.find((s) => s.id === 'low')!)).toBe(120);
+  });
+
+  it('re-books stock when a logged job is edited', () => {
+    const d = doc();
+    const job = jobFromPlate(d, plate, { id: 'j', date });
+    addJob(d, job, id);
+    // Corrected: only 100 g black, and from the "half" spool instead of "low".
+    replaceJob(d, { ...job, result: 'failed', filaments: [{ filamentId: 'black', grams: 100, spoolId: 'half' }] }, id);
+    expect(d.printJobs).toHaveLength(1);
+    expect(d.printJobs[0]!.result).toBe('failed');
+    expect(remainingG(d.spools.find((s) => s.id === 'low')!)).toBe(120);
+    expect(remainingG(d.spools.find((s) => s.id === 'half')!)).toBe(300);
+    expect(remainingG(d.spools.find((s) => s.id === 'w')!)).toBe(1000);
   });
 
   it('measures the failure rate by print time', () => {

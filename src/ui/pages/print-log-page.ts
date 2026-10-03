@@ -2,13 +2,14 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { formatDuration, parseDuration } from '../../core/duration';
 import type { AppDocument, PrintJob } from '../../core/model';
-import { addJob, jobStats, removeJob, suggestSpool } from '../../core/print-log';
+import { addJob, jobStats, removeJob, replaceJob, suggestSpool } from '../../core/print-log';
 import { remainingG } from '../../core/stock';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { cellNumber, cellSelect, cellText, type Option } from '../fields';
 import { newId, num, percent, today } from '../format';
-import { filamentLabel, filamentOptions } from './filaments/labels';
+import { pickFilament } from '../filament-picker';
+import { filamentLabel } from './filaments/labels';
 
 const RESULTS: Option[] = [
   { value: 'success', label: 'Success' },
@@ -28,6 +29,8 @@ export function openPrintLogWith(job: PrintJob): void {
 export class PrintLogPage extends LitElement {
   #store = new StoreController(this, store());
   @state() private draft: PrintJob | null = null;
+  /** The draft edits an existing job (instead of logging a new one). */
+  @state() private editingExisting = false;
 
   protected override createRenderRoot() {
     return this;
@@ -73,7 +76,10 @@ export class PrintLogPage extends LitElement {
                   <td>${formatDuration(j.printTimeMin)}</td>
                   <td class="small">${j.filaments.map((f) => html`<div>${num(f.grams)} g ${this.#filamentName(f.filamentId)}${f.spoolId ? ` (${this.#spoolLabel(f.spoolId)})` : ''}</div>`)}</td>
                   <td>${j.result}</td>
-                  <td><button class="btn btn-sm btn-link text-danger" title="Delete (returns the filament to the spools)" @click=${() => this.#delete(j)}>✕</button></td>
+                  <td class="text-nowrap">
+                    <button class="btn btn-sm btn-link" title="Edit" @click=${() => this.#edit(j)}>✎</button>
+                    <button class="btn btn-sm btn-link text-danger" title="Delete (returns the filament to the spools)" @click=${() => this.#delete(j)}>✕</button>
+                  </td>
                 </tr>`)}
               </tbody>
             </table></div>`
@@ -89,7 +95,6 @@ export class PrintLogPage extends LitElement {
       this.draft = next;
     };
     const printers: Option[] = doc.printers.filter((p) => p.status !== 'retired').map((p) => ({ value: p.id, label: p.name }));
-    const filaments: Option[] = [{ value: '', label: 'Filament…' }, ...filamentOptions(doc)];
     const spoolOptions = (filamentId: string): Option[] => [
       { value: '', label: 'no spool (stock not changed)' },
       ...doc.spools
@@ -112,7 +117,7 @@ export class PrintLogPage extends LitElement {
           <thead><tr><th>Filament</th><th style="width: 7rem">Grams used</th><th>From spool</th><th></th></tr></thead>
           <tbody>
             ${job.filaments.map((f, i) => html`<tr>
-              <td>${cellSelect(f.filamentId, filaments, (v) => edit((j) => { const spoolId = suggestSpool(doc, v); j.filaments[i] = { filamentId: v, grams: f.grams, ...(spoolId ? { spoolId } : {}) }; }), true, 'Filament')}</td>
+              <td style="min-width: 18rem">${pickFilament(f.filamentId, (v) => edit((j) => { const spoolId = v ? suggestSpool(this.#doc, v) : undefined; j.filaments[i] = { filamentId: v, grams: f.grams, ...(spoolId ? { spoolId } : {}) }; }))}</td>
               <td>${cellNumber(f.grams, (v) => edit((j) => (j.filaments[i]!.grams = v ?? 0)), { min: 0, step: 0.1, title: 'Grams' })}</td>
               <td>${f.filamentId ? cellSelect(f.spoolId ?? '', spoolOptions(f.filamentId), (v) => edit((j) => { if (v) j.filaments[i]!.spoolId = v; else delete j.filaments[i]!.spoolId; }), true, 'Spool') : nothing}</td>
               <td><button class="btn btn-sm btn-link text-danger" title="Remove" @click=${() => edit((j) => j.filaments.splice(i, 1))}>✕</button></td>
@@ -122,7 +127,7 @@ export class PrintLogPage extends LitElement {
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <button class="btn btn-sm btn-outline-primary" @click=${() => edit((j) => j.filaments.push({ filamentId: '', grams: 0 }))}>+ Filament</button>
           ${cellText(job.note, (v) => edit((j) => (j.note = v || undefined)), { title: 'Note', placeholder: 'Note (optional)' })}
-          <button class="btn btn-primary ms-auto" ?disabled=${!valid} @click=${this.#save}>Save print</button>
+          <button class="btn btn-primary ms-auto" ?disabled=${!valid} @click=${this.#save}>${this.editingExisting ? 'Save changes' : 'Save print'}</button>
         </div>
         ${job.result !== 'success' ? html`<p class="small text-body-secondary mt-2 mb-0">For failed prints, enter the filament used until it failed.</p>` : nothing}
       </section>
@@ -132,6 +137,7 @@ export class PrintLogPage extends LitElement {
   #newDraft = () => {
     if (this.draft) {
       this.draft = null;
+      this.editingExisting = false;
       return;
     }
     const printer = this.#doc.printers.find((p) => p.status === 'active');
@@ -141,9 +147,17 @@ export class PrintLogPage extends LitElement {
   #save = async () => {
     const job = this.draft;
     if (!job) return;
-    await this.#store.store.update((d) => addJob(d, job, newId));
+    const existing = this.editingExisting;
+    await this.#store.store.update((d) => (existing ? replaceJob(d, job, newId) : addJob(d, job, newId)));
+    this.editingExisting = false;
     this.draft = null;
   };
+
+  #edit(job: PrintJob) {
+    this.draft = structuredClone(job);
+    this.editingExisting = true;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   #delete(job: PrintJob) {
     if (!confirm(`Delete "${job.name}" from ${job.date}? The filament is returned to the spools.`)) return;

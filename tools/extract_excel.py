@@ -7,6 +7,7 @@ The workbook is read twice: once with cached values (inputs + legacy results,
 used as regression fixtures for the new calc engine) and once with formulas
 (only to document them). Nothing is recalculated here.
 """
+import colorsys
 import datetime
 import json
 import re
@@ -367,6 +368,7 @@ def main():
             "acquisition": "gift" if r["Name"] in GIFTED_FILAMENTS else "purchase",
             "status": "wishlist" if r["Name"] in WISHLIST_FILAMENTS else "owned",
             "legacyName": r["Name"],
+            "_legacyMaterial": mat_l,
         }
         if "kg Bought" in r:
             f["_legacyComputed"] = {
@@ -528,6 +530,7 @@ def main():
     }])
     dump("quotes.json", quotes)
     write_legacy_fixture(settings, mk3, filaments, quotes)
+    apply_color_swatches(filaments)
     write_app_document(settings, materials, printers, product_lines, filaments, purchases, machine, quotes)
     print("purchases flagged for review:", sum(1 for p in purchases if "review" in p))
 
@@ -574,6 +577,88 @@ def write_legacy_fixture(settings, printer, filaments, quotes):
     print(f"wrote {out.relative_to(ROOT)}: {len(items)} items")
 
 
+# --- Color swatches from "Fillament List.xlsx" (optional, owner-maintained) ---
+SWATCH_FILE = ROOT / "Fillament List.xlsx"
+# List manufacturer/color spellings -> the normalized ones used here.
+SWATCH_MANUFACTURER = {"Prusa": "Prusa Research", "Prusament": "Prusa Research", "Prusa?": "Prusa Research",
+                       "Prusa / easyABS": "Prusa Research", "Fillamentum Extrafill": "Fillamentum"}
+SWATCH_COLOR = {"Lila": "Purple", "Orange": "Prusa Orange"}
+# Differences between the list and the data that the owner checked (2026-10-03): the data is right.
+SWATCH_CONFIRMED = {
+    ("GEETECH", "Green"),  # listed as PLA, confirmed PETG
+    ("Prusament", "Jet Black"),  # PLA listed with a 2020 purchase; stays a wishlist entry (probably mis-delivered)
+}
+# Excel's theme index order differs from the XML order of the color scheme.
+THEME_SLOTS = ["lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6"]
+
+
+def _theme_colors(wb):
+    xml = wb.loaded_theme.decode("utf8") if isinstance(wb.loaded_theme, bytes) else (wb.loaded_theme or "")
+    colors = {}
+    for tag in THEME_SLOTS:
+        m = re.search(rf"<a:{tag}>(.*?)</a:{tag}>", xml, re.S)
+        v = m and re.search(r'(?:val|lastClr)="([0-9A-Fa-f]{6})"', m.group(1))
+        if v:
+            colors[tag] = v.group(1)
+    return colors
+
+
+def _apply_tint(rgb_hex, tint):
+    """Excel tint: darken (tint < 0) or lighten (tint > 0) in HLS lightness."""
+    r, g, b = (int(rgb_hex[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    h, l, s_ = colorsys.rgb_to_hls(r, g, b)
+    l = l * (1 + tint) if tint < 0 else l * (1 - tint) + tint
+    return "".join(f"{round(c * 255):02X}" for c in colorsys.hls_to_rgb(h, l, s_))
+
+
+def _cell_hex(cell, theme):
+    fill = cell.fill
+    if fill is None or fill.fill_type != "solid":
+        return None
+    c = fill.fgColor
+    if c.type == "rgb" and c.rgb and c.rgb != "00000000":
+        return c.rgb[-6:]
+    if c.type == "theme" and THEME_SLOTS[c.theme] in theme:
+        return _apply_tint(theme[THEME_SLOTS[c.theme]], c.tint or 0)
+    return None
+
+
+def apply_color_swatches(filaments):
+    """Sets colorHex from the swatch column; prints rows that disagree with the data."""
+    if not SWATCH_FILE.exists():
+        return
+    wb = openpyxl.load_workbook(SWATCH_FILE)
+    ws = wb.active
+    theme = _theme_colors(wb)
+    matched = 0
+    for row in ws.iter_rows(min_row=2):
+        sample, color, maker, material, last = row[0], row[1].value, row[2].value, row[3].value, row[4].value
+        if not color or not maker:
+            continue
+        manufacturer = SWATCH_MANUFACTURER.get(maker, maker)
+        want = SWATCH_COLOR.get(color, COLOR.get(color, (color, None))[0]).lower()
+        candidates = [f for f in filaments if f["manufacturer"] == manufacturer and f["color"].lower() == want]
+        exact = [f for f in candidates if f["_legacyMaterial"] == material]
+        hits = exact or candidates
+        if len(hits) > 1:  # e.g. Silver vs. Silk Silver: the plain one
+            hits = [f for f in hits if not f["finish"]] or hits
+        if len(hits) != 1:
+            print(f"swatch list: no unique match for {maker} {material} {color} ({len(hits)} candidates)")
+            continue
+        f = hits[0]
+        if not exact and (maker, color) not in SWATCH_CONFIRMED:
+            print(f"swatch list: {maker} {color} is listed as {material}, data says {f['_legacyMaterial']} - kept {f['_legacyMaterial']}")
+        if f["status"] == "wishlist" and last and (maker, color) not in SWATCH_CONFIRMED:
+            print(f"swatch list: {maker} {material} {color} has a last purchase {iso(last)} but is marked wishlist")
+        hex_ = _cell_hex(sample, theme)
+        if hex_ is None and color.lower() == "white":
+            hex_ = "FFFFFF"
+        if hex_:
+            f["colorHex"] = f"#{hex_.lower()}"
+            matched += 1
+    print(f"swatch list: {matched} colors applied")
+
+
 def pick(d, *keys):
     return {k: d[k] for k in keys if k in d}
 
@@ -600,7 +685,7 @@ def write_app_document(settings, materials, printers, product_lines, filaments, 
         "materialProfiles": materials,
         "printers": printers,
         "productLines": product_lines,
-        "filaments": [pick(f, "id", "productLineId", "color", "finish", "link", "asin", "acquisition", "status")
+        "filaments": [pick(f, "id", "productLineId", "color", "colorHex", "finish", "link", "asin", "acquisition", "status")
                       for f in filaments],
         "purchases": [{"id": f"p{i:04d}", **pick(x, "date", "store", "description", "listingTitle", "asin",
                                                  "filamentId", "spoolType", "packSizeKg", "packageWeightKg", "quantity",

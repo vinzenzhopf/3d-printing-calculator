@@ -9,7 +9,8 @@ import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, switchField, type Option } from '../../fields';
 import { money, newId, num, today } from '../../format';
-import { filamentLabel, filamentOptions, lineLabel } from './labels';
+import { pickFilament } from '../../filament-picker';
+import { filamentLabel, lineLabel } from './labels';
 
 const STATUS: Option[] = [
   { value: 'sealed', label: 'Sealed' },
@@ -182,7 +183,7 @@ export class FilamentStock extends LitElement {
   #addFromShelf() {
     const doc = this.#doc;
     return html`<div class="row g-2 mt-2 align-items-end">
-      <div class="col-md-5"><label class="small d-block">Filament${cellSelect(this.shelf.filamentId, [{ value: '', label: 'Choose…' }, ...filamentOptions(doc)], (v) => (this.shelf = { ...this.shelf, filamentId: v }), true, 'Filament')}</label></div>
+      <div class="col-md-5"><div class="small">Filament</div>${pickFilament(this.shelf.filamentId, (v) => (this.shelf = { ...this.shelf, filamentId: v }))}</div>
       <div class="col-md-3"><label class="small d-block">Spool${cellSelect(this.shelf.spoolType, SPOOL_TYPES, (v) => (this.shelf = { ...this.shelf, spoolType: v as SpoolType }), true, 'Spool type')}</label></div>
       <div class="col-md-2"><label class="small d-block">Size (g)${cellNumber(this.shelf.nominalG, (v) => (this.shelf = { ...this.shelf, nominalG: v ?? 1000 }), { min: 0, step: 50, title: 'Nominal grams' })}</label></div>
       <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" ?disabled=${!this.shelf.filamentId} @click=${async () => {

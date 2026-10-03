@@ -54,6 +54,15 @@ export function removeJob(doc: AppDocument, jobId: Id): void {
   for (const s of doc.spools) s.movements = s.movements.filter((m) => m.jobId !== jobId);
 }
 
+/** Saves an edited job: its old stock bookings are undone and the new ones applied. */
+export function replaceJob(doc: AppDocument, job: PrintJob, newId: () => Id): void {
+  const index = doc.printJobs.findIndex((j) => j.id === job.id);
+  removeJob(doc, job.id);
+  addJob(doc, job, newId);
+  // Keep the job at its old position in the list.
+  if (index >= 0) doc.printJobs.splice(index, 0, doc.printJobs.pop()!);
+}
+
 export interface JobStats {
   jobs: number;
   hours: number;

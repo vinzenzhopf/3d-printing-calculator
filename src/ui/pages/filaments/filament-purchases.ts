@@ -7,7 +7,8 @@ import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, type Option } from '../../fields';
 import { money, newId, num, today } from '../../format';
-import { filamentLabel, filamentOptions } from './labels';
+import { pickFilament } from '../../filament-picker';
+import { filamentLabel, storeDatalist } from './labels';
 
 const SPOOL_TYPES: Option[] = [
   { value: '', label: 'Spool type…' },
@@ -25,6 +26,8 @@ export class FilamentPurchases extends LitElement {
   #store = new StoreController(this, store());
   @state() private filter = '';
   @state() private draft: Order | null = null;
+  /** Purchase shown as an edit row. */
+  @state() private editing: string | null = null;
 
   protected override createRenderRoot() {
     return this;
@@ -61,6 +64,7 @@ export class FilamentPurchases extends LitElement {
           ${this.draft ? 'Cancel' : 'Add purchase'}
         </button>
       </div>
+      ${storeDatalist(doc)}
       ${this.draft ? this.#orderForm(this.draft) : nothing}
       <div class="table-responsive">
         <table class="table table-sm align-middle">
@@ -68,7 +72,7 @@ export class FilamentPurchases extends LitElement {
             <tr><th>Date</th><th>Store</th><th>Description</th><th>Filament</th><th class="text-end">kg</th><th class="text-end">Price</th><th class="text-end">/ kg</th><th>Pack</th><th></th></tr>
           </thead>
           <tbody>
-            ${purchases.map((p) => this.#row(p, cur))}
+            ${purchases.map((p) => (this.editing === p.id ? this.#editRow(p) : this.#row(p, cur)))}
           </tbody>
         </table>
       </div>
@@ -76,24 +80,43 @@ export class FilamentPurchases extends LitElement {
   }
 
   #row(p: FilamentPurchase, cur: string) {
-    const set = (mutate: (x: FilamentPurchase) => void) =>
-      void this.#store.store.update((d) => mutate(d.purchases.find((x) => x.id === p.id)!));
+    const f = this.#doc.filaments.find((x) => x.id === p.filamentId);
     return html`<tr>
       <td class="text-nowrap">${p.date}</td>
       <td>${p.store}</td>
-      <td class="small" title=${p.listingTitle ?? ''}>${p.description}${p.spoolType === 'refill' ? html` <span class="badge text-bg-light border">refill</span>` : nothing}</td>
-      <td style="min-width: 14rem">${cellSelect(p.filamentId, filamentOptions(this.#doc), (v) => set((x) => (x.filamentId = v)), true, 'Filament')}</td>
+      <td class="small" title=${p.listingTitle ?? ''}>${p.description || html`<span class="text-body-secondary">–</span>`}${p.spoolType === 'refill' ? html` <span class="badge text-bg-light border">refill</span>` : nothing}</td>
+      <td class="small">${f ? filamentLabel(this.#doc, f) : '?'}</td>
       <td class="text-end">${num(p.totalKg, p.totalKg % 1 ? 2 : 0)}</td>
       <td class="text-end text-nowrap">${money(p.totalPrice, cur)}</td>
       <td class="text-end text-nowrap">${money(p.totalPrice / p.totalKg, cur)}</td>
       <td class="small">${packClass(p) === 'multi' ? `multi (${num(p.packSizeKg ?? p.packageWeightKg, 1)} kg)` : 'single'}</td>
-      <td><button class="btn btn-sm btn-link text-danger" title="Delete" @click=${() => this.#delete(p)}>✕</button></td>
+      <td class="text-nowrap">
+        <button class="btn btn-sm btn-link" title="Edit" @click=${() => (this.editing = p.id)}>✎</button>
+        <button class="btn btn-sm btn-link text-danger" title="Delete" @click=${() => this.#delete(p)}>✕</button>
+      </td>
+    </tr>`;
+  }
+
+  /** All fields of a purchase, edited in place; each change is saved directly. */
+  #editRow(p: FilamentPurchase) {
+    const set = (mutate: (x: FilamentPurchase) => void) =>
+      void this.#store.store.update((d) => mutate(d.purchases.find((x) => x.id === p.id)!));
+    return html`<tr class="table-active">
+      <td>${cellText(p.date, (v) => v && set((x) => (x.date = v)), { type: 'date', title: 'Date' })}</td>
+      <td>${cellText(p.store, (v) => set((x) => (x.store = v)), { title: 'Store', list: 'stores' })}</td>
+      <td>${cellText(p.description, (v) => set((x) => (x.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}
+        <div class="mt-1">${cellSelect(p.spoolType ?? '', SPOOL_TYPES, (v) => set((x) => (x.spoolType = (v || null) as FilamentPurchase['spoolType'])), true, 'Spool type')}</div></td>
+      <td style="min-width: 18rem">${pickFilament(p.filamentId, (v) => { if (v) set((x) => (x.filamentId = v)); })}</td>
+      <td style="width: 6rem">${cellNumber(p.totalKg, (v) => v && set((x) => { x.totalKg = v; x.packageWeightKg = v / (x.quantity || 1); }), { min: 0.01, step: 0.01, title: 'kg' })}</td>
+      <td style="width: 7rem">${cellNumber(p.totalPrice, (v) => v !== null && set((x) => (x.totalPrice = v)), { min: 0, step: 0.01, title: 'Price incl. shipping share' })}</td>
+      <td></td>
+      <td style="width: 6rem">${cellNumber(p.packSizeKg ?? p.packageWeightKg, (v) => v && set((x) => (x.packSizeKg = v)), { min: 0.1, step: 0.5, title: 'Pack size as sold (kg)' })}</td>
+      <td><button class="btn btn-sm btn-primary" @click=${() => (this.editing = null)}>Done</button></td>
     </tr>`;
   }
 
   #orderForm(order: Order) {
     const cur = this.#doc.settings.currency;
-    const options: Option[] = [{ value: '', label: 'Filament…' }, ...filamentOptions(this.#doc)];
     const edit = (mutate: (o: Order) => void) => {
       const next = structuredClone(order);
       mutate(next);
@@ -107,7 +130,7 @@ export class FilamentPurchases extends LitElement {
         <h2 class="h6">New purchase</h2>
         <div class="row g-2 mb-2">
           <div class="col-md-2">${cellText(order.date, (v) => edit((o) => (o.date = v)), { type: 'date', title: 'Date' })}</div>
-          <div class="col-md-2">${cellText(order.store, (v) => edit((o) => (o.store = v)), { title: 'Store', placeholder: 'Store' })}</div>
+          <div class="col-md-2">${cellText(order.store, (v) => edit((o) => (o.store = v)), { title: 'Store', placeholder: 'Store', list: 'stores' })}</div>
           <div class="col-md-4">${cellText(order.description, (v) => edit((o) => (o.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}</div>
           <div class="col-md-2">${cellSelect(order.spoolType ?? '', SPOOL_TYPES, (v) => edit((o) => (o.spoolType = (v || null) as Order['spoolType'])), true, 'Spool type')}</div>
         </div>
@@ -115,7 +138,7 @@ export class FilamentPurchases extends LitElement {
           <thead><tr><th>Filament</th><th>kg</th><th>Own price (optional)</th><th class="text-end">Resulting</th><th></th></tr></thead>
           <tbody>
             ${order.lines.map((l, i) => html`<tr>
-              <td>${cellSelect(l.filamentId, options, (v) => editLine(i, (x) => (x.filamentId = v)), true, 'Filament')}</td>
+              <td style="min-width: 18rem">${pickFilament(l.filamentId, (v) => editLine(i, (x) => (x.filamentId = v)))}</td>
               <td style="width: 7rem">${cellNumber(l.kg, (v) => editLine(i, (x) => (x.kg = v ?? 0)), { min: 0, step: 0.01, title: 'kg' })}</td>
               <td style="width: 10rem">${cellNumber(l.price ?? null, (v) => editLine(i, (x) => (v === null ? delete x.price : (x.price = v))), { min: 0, step: 0.01, allowEmpty: true, title: 'Line price' })}</td>
               <td class="text-end text-nowrap">${preview[i] ? `${money(preview[i]!.totalPrice, cur)} (${money(preview[i]!.totalPrice / preview[i]!.totalKg, cur)}/kg)` : ''}</td>

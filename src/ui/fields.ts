@@ -145,10 +145,11 @@ export function cellNumber(
 export function cellText(
   value: string | null | undefined,
   onChange: (value: string) => void,
-  opts: { title?: string; placeholder?: string; type?: 'text' | 'date' | 'url' | 'color' } = {},
+  opts: { title?: string; placeholder?: string; type?: 'text' | 'date' | 'url' | 'color'; list?: string } = {},
 ): TemplateResult {
   return html`<input
     type=${opts.type ?? 'text'}
+    list=${opts.list ?? nothing}
     class=${opts.type === 'color' ? 'form-control form-control-sm form-control-color' : 'form-control form-control-sm'}
     aria-label=${opts.title ?? nothing}
     title=${opts.title ?? nothing}
