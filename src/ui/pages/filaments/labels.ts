@@ -57,3 +57,26 @@ export function storeSuggestions(doc: AppDocument): string[] {
 export function storeDatalist(doc: AppDocument) {
   return html`<datalist id="stores">${storeSuggestions(doc).map((s) => html`<option value=${s}></option>`)}</datalist>`;
 }
+
+/**
+ * Store input: free text plus a visible "previous stores" dropdown (a bare
+ * datalist only shows up while typing, which is easy to miss).
+ */
+export function storeField(doc: AppDocument, value: string, onChange: (store: string) => void) {
+  const stores = storeSuggestions(doc);
+  return html`<div class="input-group input-group-sm">
+    <input class="form-control" list="stores" placeholder="Store" aria-label="Store" .value=${value}
+      @change=${(e: Event) => onChange((e.target as HTMLInputElement).value.trim())} />
+    ${stores.length
+      ? html`<select class="form-select flex-grow-0" style="width: 2.5rem; min-width: 0" aria-label="Previous stores" title="Previous stores"
+          @change=${(e: Event) => {
+            const select = e.target as HTMLSelectElement;
+            if (select.value) onChange(select.value);
+            select.value = '';
+          }}>
+          <option value="" selected></option>
+          ${stores.map((s) => html`<option value=${s}>${s}</option>`)}
+        </select>`
+      : ''}
+  </div>`;
+}

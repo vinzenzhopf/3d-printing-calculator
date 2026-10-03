@@ -8,7 +8,7 @@ import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, type Option } from '../../fields';
 import { money, newId, num, today } from '../../format';
 import { pickFilament } from '../../filament-picker';
-import { filamentLabel, storeDatalist } from './labels';
+import { filamentLabel, storeDatalist, storeField } from './labels';
 
 const SPOOL_TYPES: Option[] = [
   { value: '', label: 'Spool type…' },
@@ -103,7 +103,7 @@ export class FilamentPurchases extends LitElement {
       void this.#store.store.update((d) => mutate(d.purchases.find((x) => x.id === p.id)!));
     return html`<tr class="table-active">
       <td>${cellText(p.date, (v) => v && set((x) => (x.date = v)), { type: 'date', title: 'Date' })}</td>
-      <td>${cellText(p.store, (v) => set((x) => (x.store = v)), { title: 'Store', list: 'stores' })}</td>
+      <td style="min-width: 9rem">${storeField(this.#doc, p.store, (v) => set((x) => (x.store = v)))}</td>
       <td>${cellText(p.description, (v) => set((x) => (x.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}
         <div class="mt-1">${cellSelect(p.spoolType ?? '', SPOOL_TYPES, (v) => set((x) => (x.spoolType = (v || null) as FilamentPurchase['spoolType'])), true, 'Spool type')}</div></td>
       <td style="min-width: 18rem">${pickFilament(p.filamentId, (v) => { if (v) set((x) => (x.filamentId = v)); })}</td>
@@ -130,7 +130,7 @@ export class FilamentPurchases extends LitElement {
         <h2 class="h6">New purchase</h2>
         <div class="row g-2 mb-2">
           <div class="col-md-2">${cellText(order.date, (v) => edit((o) => (o.date = v)), { type: 'date', title: 'Date' })}</div>
-          <div class="col-md-2">${cellText(order.store, (v) => edit((o) => (o.store = v)), { title: 'Store', placeholder: 'Store', list: 'stores' })}</div>
+          <div class="col-md-2">${storeField(this.#doc, order.store, (v) => edit((o) => (o.store = v)))}</div>
           <div class="col-md-4">${cellText(order.description, (v) => edit((o) => (o.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}</div>
           <div class="col-md-2">${cellSelect(order.spoolType ?? '', SPOOL_TYPES, (v) => edit((o) => (o.spoolType = (v || null) as Order['spoolType'])), true, 'Spool type')}</div>
         </div>
