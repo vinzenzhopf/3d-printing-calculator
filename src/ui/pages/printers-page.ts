@@ -8,6 +8,7 @@ import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, switchField, textField, type Option } from '../fields';
 import { money, newId, num, percent, today } from '../format';
+import { ask, tell } from '../dialogs';
 
 const STATUS: Option[] = [
   { value: 'active', label: 'Active' },
@@ -349,13 +350,13 @@ export class PrintersPage extends LitElement {
     this.editing = id;
   };
 
-  #deletePrinter(p: Printer) {
+  async #deletePrinter(p: Printer) {
     const usedIn = this.#doc.quotes.filter((q) => q.plates.some((pl) => pl.printerId === p.id)).length;
     if (usedIn > 0) {
-      alert(`"${p.name}" is used in ${usedIn} quote(s). Set it to "retired" instead.`);
+      await tell(`"${p.name}" is used in ${usedIn} quote(s). Set it to "retired" instead.`);
       return;
     }
-    if (!confirm(`Delete "${p.name}" and its machine costs?`)) return;
+    if (!(await ask(`Delete "${p.name}" and its machine costs?`, { ok: 'Delete', danger: true }))) return;
     this.#update((doc) => {
       doc.printers = doc.printers.filter((x) => x.id !== p.id);
       doc.machineCosts = doc.machineCosts.filter((c) => c.printerId !== p.id);

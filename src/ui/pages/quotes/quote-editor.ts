@@ -18,6 +18,7 @@ import { DEFAULT_DENSITY, metersToGrams } from '../../../core/stock';
 import { readSlicerFile } from '../../slicer-file';
 import { openPrintLogWith } from '../print-log-page';
 import './quote-offer';
+import { ask } from '../../dialogs';
 
 @customElement('quote-editor')
 export class QuoteEditor extends LitElement {
@@ -407,7 +408,7 @@ export class QuoteEditor extends LitElement {
   };
 
   #delete = async () => {
-    if (!confirm(`Delete quote #${this.#quote?.number}?`)) return;
+    if (!(await ask(`Delete quote #${this.#quote?.number}?`, { ok: 'Delete', danger: true }))) return;
     await this.#store.store.update((d) => (d.quotes = d.quotes.filter((q) => q.id !== this.quoteId)));
     location.hash = '#/quotes';
   };

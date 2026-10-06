@@ -9,6 +9,7 @@ import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaFie
 import { newId, num, today } from '../../format';
 import { BASE_MATERIALS } from '../printers-page';
 import { lineLabel, priceCell } from './labels';
+import { tell } from '../../dialogs';
 
 const STATUS: Option[] = [
   { value: 'owned', label: 'Owned' },
@@ -201,7 +202,7 @@ export class FilamentCatalog extends LitElement {
   #deleteFilament(f: Filament) {
     const used = this.#doc.quotes.some((q) => q.plates.some((p) => p.filaments.some((pf) => pf.filamentId === f.id)));
     if (used) {
-      alert(`"${f.color}" is used in quotes and can't be deleted.`);
+      void tell(`"${f.color}" is used in quotes and can't be deleted.`);
       return;
     }
     this.#update((d) => (d.filaments = d.filaments.filter((x) => x.id !== f.id)));

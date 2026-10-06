@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { store, syncManager } from '../state/store-instance';
 import type { SyncConfig } from '../state/sync-manager';
 import { switchField, textField } from './fields';
+import { ask } from './dialogs';
 
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 
@@ -122,7 +123,7 @@ export class SyncSettings extends LitElement {
           : nothing}
       <div class="d-flex gap-2">
         ${s ? html`<button class="btn btn-primary" ?disabled=${s.status === 'syncing' || s.status === 'conflict'} @click=${() => void s.sync()}>Sync now</button>` : nothing}
-        <button class="btn btn-outline-danger ms-auto" @click=${() => { if (confirm('Disconnect sync on this device? Data stays in this browser and in the repository.')) m.disconnect(); }}>Disconnect</button>
+        <button class="btn btn-outline-danger ms-auto" @click=${async () => { if (await ask('Disconnect sync on this device? Data stays in this browser and in the repository.', { ok: 'Disconnect', danger: true })) m.disconnect(); }}>Disconnect</button>
       </div>
     `;
   }

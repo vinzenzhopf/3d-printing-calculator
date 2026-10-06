@@ -13,6 +13,7 @@ import { cellNumber, cellSelect, cellText, type Option } from '../fields';
 import { newId, num, percent, today } from '../format';
 import { pickFilament } from '../filament-picker';
 import { filamentLabel } from './filaments/labels';
+import { ask } from '../dialogs';
 
 const RESULTS: Option[] = [
   { value: 'success', label: 'Success' },
@@ -222,8 +223,8 @@ export class PrintLogPage extends LitElement {
                     this.editingExisting = false;
                   }}>Add…</button>`
               : html`<span class="me-auto text-danger">Unreadable inbox file ${item.path}</span>`}
-            <button class="btn btn-sm btn-outline-secondary" @click=${() => {
-              if (confirm('Dismiss this detected print? It is removed from the inbox and not logged.')) void this.#removeInbox(item, 'Dismissed detected print');
+            <button class="btn btn-sm btn-outline-secondary" @click=${async () => {
+              if (await ask('Dismiss this detected print? It is removed from the inbox and not logged.', { ok: 'Dismiss', danger: true })) void this.#removeInbox(item, 'Dismissed detected print');
             }}>Dismiss</button>
           </li>`;
         })}
@@ -237,8 +238,8 @@ export class PrintLogPage extends LitElement {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  #delete(job: PrintJob) {
-    if (!confirm(`Delete "${job.name}" from ${job.date}? The filament is returned to the spools.`)) return;
+  async #delete(job: PrintJob) {
+    if (!(await ask(`Delete "${job.name}" from ${job.date}? The filament is returned to the spools.`, { ok: 'Delete', danger: true }))) return;
     void this.#store.store.update((d) => removeJob(d, job.id));
   }
 

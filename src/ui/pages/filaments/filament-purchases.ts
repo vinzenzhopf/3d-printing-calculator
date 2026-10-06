@@ -9,6 +9,7 @@ import { cellNumber, cellSelect, cellText, type Option } from '../../fields';
 import { money, newId, num, today } from '../../format';
 import { pickFilament } from '../../filament-picker';
 import { filamentLabel, storeDatalist, storeField } from './labels';
+import { ask } from '../../dialogs';
 
 const SPOOL_TYPES: Option[] = [
   { value: '', label: 'Spool type…' },
@@ -168,8 +169,8 @@ export class FilamentPurchases extends LitElement {
     this.draft = null;
   };
 
-  #delete(p: FilamentPurchase) {
-    if (!confirm(`Delete the purchase from ${p.date} (${p.description || p.store})?`)) return;
+  async #delete(p: FilamentPurchase) {
+    if (!(await ask(`Delete the purchase from ${p.date} (${p.description || p.store})?`, { ok: 'Delete', danger: true }))) return;
     void this.#store.store.update((d) => (d.purchases = d.purchases.filter((x) => x.id !== p.id)));
   }
 }
