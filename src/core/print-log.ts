@@ -81,6 +81,6 @@ export function jobStats(jobs: readonly PrintJob[]): JobStats {
     hours,
     lostHours,
     failureRate: hours > 0 ? lostHours / hours : null,
-    filamentG: jobs.reduce((sum, j) => sum + j.filaments.reduce((s, f) => s + f.grams, 0), 0),
+    filamentG: jobs.reduce((sum, j) => sum + j.filaments.reduce((s, f) => s + f.grams, 0) + (j.untrackedFilament?.grams ?? 0), 0),
   };
 }

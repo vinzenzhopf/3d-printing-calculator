@@ -44,6 +44,11 @@ export interface PrintJob {
   printTimeMin: number;
   result: 'success' | 'failed' | 'cancelled';
   filaments: PrintJobFilament[];
+  /**
+   * Filament used whose color/spool isn't known, e.g. from imported printer history.
+   * Counts in totals and per material, but not per filament or in stock.
+   */
+  untrackedFilament?: { grams: number; material?: BaseMaterial };
   quoteId?: Id;
   plateId?: Id;
   note?: string;

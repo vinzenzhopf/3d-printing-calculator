@@ -146,3 +146,18 @@ Notes:
 - Inbox file format (version 1): `{"version": 1, "source": "...", "printer": "<inbox key>", "file": "...",
   "startedAt": "<ISO>", "finishedAt": "<ISO>", "durationMin": 260, "result": "success|failed|cancelled"}`.
   Any other tool can write the same format.
+
+## Importing past prints from OctoPrint
+
+OctoPrint keeps a history of every print per uploaded file in `~/.octoprint/uploads/.metadata.json` (files you
+deleted in OctoPrint are gone, and prints from the printer's SD card are not in it). To fill the print log with it:
+
+1. Copy the file from the OctoPrint host, e.g. `scp pi@octopi.local:~/.octoprint/uploads/.metadata.json .`
+2. Clone your data repository, then run
+   `python tools/import_octoprint_history.py .metadata.json <data-repo>/3d-printing-calculator.json --printer <printer id>`
+   (`--dry-run` first shows what would be added). Commit and push the data file.
+
+Each print gets date, model name, print time and result (OctoPrint does not tell failed from cancelled: unsuccessful
+prints are logged as cancelled). The grams come from the slicer analysis and the material in the file name, stored as
+filament of unknown color: they count in the statistics, not in the stock. Prints already in the log are skipped, so
+the import can be repeated later. Close the app on other devices (or sync them first) before pushing.

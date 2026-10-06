@@ -35,7 +35,7 @@ export function monthsBefore(month: Month, n: number): Month {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`;
 }
 
-const jobGrams = (j: PrintJob) => j.filaments.reduce((sum, f) => sum + f.grams, 0);
+const jobGrams = (j: PrintJob) => j.filaments.reduce((sum, f) => sum + f.grams, 0) + (j.untrackedFilament?.grams ?? 0);
 
 /** Prints and purchases per month, every month of the range (empty ones as zeros). */
 export function monthlyStats(doc: AppDocument, from: Month, to: Month): MonthStats[] {
@@ -121,14 +121,17 @@ export function usageByFilament(doc: AppDocument, from?: IsoDate): Share[] {
   return ranked(map);
 }
 
-/** Grams used by logged prints per base material (PLA, PETG, …). */
+/** Grams used by logged prints per base material (PLA, PETG, …), incl. filament of unknown color. */
 export function usageByMaterial(doc: AppDocument, from?: IsoDate): Share[] {
   const map = new Map<string, Share>();
-  for (const u of usageByFilament(doc, from)) {
-    const key = lineOf(doc, u.filamentId!)?.baseMaterial ?? 'Unknown';
+  const add = (key: string, grams: number) => {
     const s = map.get(key) ?? { key, value: 0 };
-    s.value += u.value;
+    s.value += grams;
     map.set(key, s);
+  };
+  for (const u of usageByFilament(doc, from)) add(lineOf(doc, u.filamentId!)?.baseMaterial ?? 'Unknown', u.value);
+  for (const j of doc.printJobs) {
+    if (j.untrackedFilament && (!from || j.date >= from)) add(j.untrackedFilament.material ?? 'Unknown', j.untrackedFilament.grams);
   }
   return ranked(map);
 }

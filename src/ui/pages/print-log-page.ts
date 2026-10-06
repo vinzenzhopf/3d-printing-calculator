@@ -85,7 +85,9 @@ export class PrintLogPage extends LitElement {
                   <td>${j.name}${j.quoteId ? html` <a class="small" href="#/quotes/${j.quoteId}">#${quoteNumber.get(j.quoteId) ?? '?'}</a>` : nothing}${j.note ? html`<div class="small text-body-secondary">${j.note}</div>` : nothing}</td>
                   <td class="small">${printerName.get(j.printerId) ?? '?'}</td>
                   <td>${formatDuration(j.printTimeMin)}</td>
-                  <td class="small">${j.filaments.map((f) => html`<div>${num(f.grams)} g ${this.#filamentName(f.filamentId)}${f.spoolId ? ` (${this.#spoolLabel(f.spoolId)})` : ''}</div>`)}</td>
+                  <td class="small">${j.filaments.map((f) => html`<div>${num(f.grams)} g ${this.#filamentName(f.filamentId)}${f.spoolId ? ` (${this.#spoolLabel(f.spoolId)})` : ''}</div>`)}${j.untrackedFilament
+                    ? html`<div class="text-body-secondary" title="Color/spool not known">${num(j.untrackedFilament.grams)} g ${j.untrackedFilament.material ?? ''}, color unknown</div>`
+                    : nothing}</td>
                   <td>${j.result}</td>
                   <td class="text-nowrap">
                     <button class="btn btn-sm btn-link" title="Edit" @click=${() => this.#edit(j)}>✎</button>
@@ -124,6 +126,12 @@ export class PrintLogPage extends LitElement {
               @change=${(e: Event) => { const input = e.target as HTMLInputElement; const m = parseDuration(input.value); if (m === null) input.value = formatDuration(job.printTimeMin); else edit((j) => (j.printTimeMin = m)); }} /></label></div>
           <div class="col-md-2"><label class="small d-block">Result${cellSelect(job.result, RESULTS, (v) => edit((j) => (j.result = v as PrintJob['result'])), true, 'Result')}</label></div>
         </div>
+        ${job.untrackedFilament
+          ? html`<div class="small mb-2">
+              ${num(job.untrackedFilament.grams)} g ${job.untrackedFilament.material ?? ''} without a known color (counts in totals, not in stock).
+              <button class="btn btn-sm btn-link" @click=${() => edit((j) => { j.filaments.push({ filamentId: '', grams: j.untrackedFilament!.grams }); delete j.untrackedFilament; })}>Assign to a filament</button>
+            </div>`
+          : nothing}
         <table class="table table-sm align-middle mb-2">
           <thead><tr><th>Filament</th><th style="width: 7rem">Grams used</th><th>From spool</th><th></th></tr></thead>
           <tbody>

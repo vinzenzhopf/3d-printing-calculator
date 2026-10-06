@@ -73,6 +73,15 @@ describe('breakdowns', () => {
     expect(usageByFilament(d, '2026-01-06').map((s) => s.filamentId)).toEqual(['grey', 'white', 'black']);
     expect(spendByBrand(d, '2026-01-01').map((s) => s.key)).toEqual(['eSUN', 'SUNLU']);
   });
+
+  it('counts filament of unknown color in totals and per material, not per filament', () => {
+    const d = doc();
+    d.printJobs.push({ id: 'j4', date: '2026-02-03', printerId: 'mk3s', name: 'imported', printTimeMin: 60, result: 'success', filaments: [], untrackedFilament: { grams: 200, material: 'ASA' } });
+    expect(totals(d).usedG).toBe(625);
+    expect(usageByMaterial(d).map((s) => [s.key, s.value])).toEqual([['PETG', 300], ['ASA', 200], ['PLA', 125]]);
+    expect(usageByFilament(d).map((s) => s.filamentId)).toEqual(['grey', 'white', 'black']);
+    expect(monthlyStats(d, '2026-02', '2026-02')[0]!.usedG).toBe(500);
+  });
 });
 
 describe('colors', () => {
