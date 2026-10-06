@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { compareColors, hexToHsl } from '../src/core/colors';
 import { createEmptyDocument } from '../src/core/document';
 import type { AppDocument } from '../src/core/model';
-import { monthRange, monthlyStats, monthsBefore, spendByBrand, totals, usageByFilament, usageByMaterial } from '../src/core/statistics';
+import { counterPeriods, monthRange, monthlyStats, monthsBefore, spendByBrand, totals, usageByFilament, usageByMaterial } from '../src/core/statistics';
 
 function doc(): AppDocument {
   const d = createEmptyDocument();
@@ -94,5 +94,23 @@ describe('colors', () => {
   it('orders by hue, then greys light to dark, then unknown colors', () => {
     const hexes = [undefined, '#000000', '#0000ff', '#ffffff', '#ff0000', '#808080', '#00ff00', '#ffff00'];
     expect([...hexes].sort(compareColors)).toEqual(['#ff0000', '#ffff00', '#00ff00', '#0000ff', '#ffffff', '#808080', '#000000', undefined]);
+  });
+});
+
+describe('counterPeriods', () => {
+  it('lists printer counters per period with the print log of the same period', () => {
+    const d = doc();
+    d.printers.push({ id: 'mk3s', name: 'MK3S+', technology: 'FDM', status: 'active', toolheads: 1, toolType: 'single', purgeWastePerPlateG: 10, purgePerFilamentChangeG: null, firstHourPhaseMin: 60, powerProfiles: {},
+      usageStats: [
+        { source: 'Display', asOf: '2026-02-01', since: null, printHours: 9000 },
+        { source: 'OctoPrint', asOf: '2025-12-31', since: '2025-01-01', prints: 300, printHours: 1500 },
+        { source: 'OctoPrint', asOf: '2026-01-31', since: '2026-01-01', prints: 3, printsFinished: 2, printHours: 4 },
+      ] });
+    const rows = counterPeriods(d);
+    expect(rows.map((r) => [r.since, r.prints, r.loggedPrints, r.loggedHours])).toEqual([
+      ['2026-01-01', 3, 2, 3],
+      ['2025-01-01', 300, 0, 0],
+      [null, undefined, 3, 7],
+    ]);
   });
 });

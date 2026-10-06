@@ -148,3 +148,45 @@ export function spendByBrand(doc: AppDocument, from?: IsoDate): Share[] {
   }
   return ranked(map);
 }
+
+export interface CounterPeriod {
+  printerId: Id;
+  printer: string;
+  source: string;
+  /** null = printer lifetime (e.g. the printer's own counter). */
+  since: IsoDate | null;
+  asOf: IsoDate;
+  prints?: number;
+  printsFinished?: number;
+  hours: number;
+  /** What the print log has for the same printer and period, for comparison. */
+  loggedPrints: number;
+  loggedHours: number;
+}
+
+/**
+ * The printers' own counters (OctoPrint, printer display) per period, next to
+ * the print log for the same period. Periods ending later come first; lifetime
+ * counters last.
+ */
+export function counterPeriods(doc: AppDocument): CounterPeriod[] {
+  return doc.printers
+    .flatMap((p) =>
+      (p.usageStats ?? []).map((s) => {
+        const jobs = doc.printJobs.filter((j) => j.printerId === p.id && j.date <= s.asOf && (!s.since || j.date >= s.since));
+        return {
+          printerId: p.id,
+          printer: p.name,
+          source: s.source,
+          since: s.since,
+          asOf: s.asOf,
+          ...(s.prints !== undefined ? { prints: s.prints } : {}),
+          ...(s.printsFinished !== undefined ? { printsFinished: s.printsFinished } : {}),
+          hours: s.printHours,
+          loggedPrints: jobs.length,
+          loggedHours: jobs.reduce((sum, j) => sum + j.printTimeMin / 60, 0),
+        };
+      }),
+    )
+    .sort((a, b) => Number(a.since === null) - Number(b.since === null) || b.asOf.localeCompare(a.asOf) || (b.since ?? '').localeCompare(a.since ?? ''));
+}

@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import type { AppDocument } from '../../core/model';
-import { monthlyStats, monthsBefore, spendByBrand, totals, usageByFilament, usageByMaterial, type MonthStats } from '../../core/statistics';
+import { counterPeriods, monthlyStats, monthsBefore, spendByBrand, totals, usageByFilament, usageByMaterial, type CounterPeriod, type MonthStats } from '../../core/statistics';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import '../charts';
@@ -112,6 +112,37 @@ export class StatisticsPage extends LitElement {
             </section></div>`
           : nothing}
       </div>
+      ${this.#counters()}
+    `;
+  }
+
+  /** Printer counters (OctoPrint, display) per period, all time; independent of the period buttons. */
+  #counters() {
+    const rows = counterPeriods(this.#doc);
+    if (rows.length === 0) return nothing;
+    const period = (r: CounterPeriod) =>
+      r.since === null ? `lifetime, as of ${r.asOf}`
+      : r.since.endsWith('-01-01') && r.asOf === `${r.since.slice(0, 4)}-12-31` ? r.since.slice(0, 4)
+      : `${r.since} – ${r.asOf}`;
+    return html`
+      <section class="card card-body mt-3">
+        <h2 class="h6">Printer counters</h2>
+        <p class="small text-body-secondary">
+          What the printers themselves counted (OctoPrint, printer display), next to the print log for the same period.
+          Edit them under Printers → usage statistics.
+        </p>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Printer</th><th>Period</th><th>Source</th><th class="text-end">Prints</th><th class="text-end">Hours</th><th class="text-end">In print log</th></tr></thead>
+          <tbody>${rows.map((r) => html`<tr>
+            <td>${r.printer}</td>
+            <td class="text-nowrap">${period(r)}</td>
+            <td class="small">${r.source}</td>
+            <td class="text-end text-nowrap">${r.prints === undefined ? '–' : num(r.prints)}${r.printsFinished !== undefined ? html` <span class="small text-body-secondary">(${num(r.printsFinished)} finished)</span>` : nothing}</td>
+            <td class="text-end">${num(r.hours)} h</td>
+            <td class="text-end text-nowrap small">${r.loggedPrints ? `${num(r.loggedPrints)} prints · ${num(r.loggedHours)} h` : '–'}</td>
+          </tr>`)}</tbody>
+        </table></div>
+      </section>
     `;
   }
 }
