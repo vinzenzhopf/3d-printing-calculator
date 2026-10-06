@@ -7,6 +7,7 @@ import { remainingG } from '../../core/stock';
 import { StoreController } from '../../state/app-store';
 import { store, syncManager } from '../../state/store-instance';
 import type { InboxItem } from '../../state/sync-manager';
+import { parseFileName } from '../../core/filename';
 import { jobFromInbox } from '../../core/inbox';
 import { cellNumber, cellSelect, cellText, type Option } from '../fields';
 import { newId, num, percent, today } from '../format';
@@ -211,7 +212,8 @@ export class PrintLogPage extends LitElement {
           return html`<li class="list-group-item d-flex flex-wrap gap-2 align-items-center small">
             ${e
               ? html`<span class="text-nowrap">${localDate(e.finishedAt)}</span>
-                  <span class="me-auto text-break">${e.file || '(no file name)'} <span class="text-body-secondary">· ${e.printer}</span></span>
+                  ${((info) => html`<span class="me-auto text-break" title=${e.file}>${info.base || '(no file name)'}
+                    <span class="text-body-secondary">· ${[info.grams !== undefined ? `${info.grams} g` : '', ...info.extras, e.printer].filter(Boolean).join(' · ')}</span></span>`)(parseFileName(e.file))}
                   <span>${e.durationMin === null ? '' : `${formatDuration(e.durationMin)} h`}</span>
                   <span class="badge text-bg-${e.result === 'success' ? 'success' : 'warning'}">${e.result}</span>
                   <button class="btn btn-sm btn-primary" @click=${() => {

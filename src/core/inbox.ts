@@ -1,3 +1,4 @@
+import { parseFileName } from './filename';
 import type { AppDocument, Id, IsoDate, PrintJob } from './model';
 import { jobFromPlate } from './print-log';
 
@@ -48,9 +49,11 @@ export function printName(file: string): string {
 
 /**
  * Turns an inbox entry into a print log draft. The printer comes from the
- * printers' inbox keys (else the first active printer). If a quote plate has
- * the same name as the file (plates imported from slicer files are named after
- * it), its filaments, grams and quote link are taken over.
+ * printers' inbox keys (else the first active printer). The name is the model
+ * name from the file name; grams encoded in the file name (slicer output
+ * template) are taken as the actual usage. If a quote plate belongs to the file
+ * (same file name, else same model name), its filaments and quote link are taken
+ * over as well.
  */
 export function jobFromInbox(doc: AppDocument, entry: InboxEntry, opts: { id: Id; localDate: (iso: string) => IsoDate }): PrintJob {
   const key = entry.printer.trim().toLowerCase();
@@ -58,23 +61,42 @@ export function jobFromInbox(doc: AppDocument, entry: InboxEntry, opts: { id: Id
     doc.printers.find((p) => (p.inboxKey ?? '').trim().toLowerCase() === key && key) ??
     doc.printers.find((p) => p.status === 'active') ??
     doc.printers[0];
-  const name = printName(entry.file);
+  const fileName = printName(entry.file);
+  const info = parseFileName(entry.file);
+  const name = info.base || fileName;
   const date = opts.localDate(entry.finishedAt);
 
-  const match = doc.quotes
+  const plates = doc.quotes
     .filter((q) => q.status !== 'rejected')
-    .flatMap((q) => q.plates.map((plate) => ({ q, plate })))
-    .find(({ plate }) => printName(plate.name).toLowerCase() === name.toLowerCase());
+    .flatMap((q) => q.plates.map((plate) => ({ q, plate })));
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const match =
+    plates.find(({ plate }) => same(printName(plate.name), fileName)) ??
+    plates.find(({ plate }) => same(parseFileName(plate.name).base, name));
   const base = match
     ? jobFromPlate(doc, match.plate, { id: opts.id, date, quoteId: match.q.id })
     : { id: opts.id, date, printerId: printer?.id ?? '', name, printTimeMin: 0, result: 'success' as const, filaments: [] };
 
+  // Slicer grams from the file name: the exact value for this file (one row; multi-material totals go to the first).
+  let filaments = base.filaments;
+  if (info.grams !== undefined) {
+    filaments = filaments.length > 0
+      ? filaments.map((f, i) => (i === 0 && filaments.length === 1 ? { ...f, grams: info.grams! } : f))
+      : [{ filamentId: '', grams: info.grams }];
+  }
+  const slicer = [
+    info.estimatedMin !== undefined ? `slicer estimate ${Math.floor(info.estimatedMin / 60)}h${String(info.estimatedMin % 60).padStart(2, '0')}m` : '',
+    info.grams !== undefined ? `${info.grams} g` : '',
+    info.extras.join(' '),
+  ].filter(Boolean).join(', ');
   return {
     ...base,
     printerId: printer?.id ?? base.printerId,
     name,
     printTimeMin: entry.durationMin ?? base.printTimeMin,
     result: entry.result,
-    note: `Detected by ${entry.printer || 'printer'}${entry.startedAt ? `, started ${entry.startedAt}` : ''}`,
+    filaments,
+    note: [`Detected by ${entry.printer || 'printer'}${entry.startedAt ? `, started ${entry.startedAt}` : ''}`, fileName !== name ? `file ${fileName}` : '', slicer]
+      .filter(Boolean).join(' · '),
   };
 }

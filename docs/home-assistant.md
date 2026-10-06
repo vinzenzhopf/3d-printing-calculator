@@ -136,6 +136,11 @@ Notes:
 - The duration includes pauses (wall-clock time). Correct it in the app if needed.
 - Only final states trigger the end (`operational`, `error`, `offline_after_error`, `offline`). `finishing` and
   `cancelling` are recognized as the state the print came from, so a print is never logged twice.
+- **Grams from the file name:** if your slicer writes the filament weight into the G-code name, the app pre-fills it.
+  PrusaSlicer *Output filename format*, for example:
+  `{input_filename_base}_{nozzle_diameter[0]}n_{layer_height}mm_{printing_filament_types}_{printer_model}_{print_time}_{total_weight}g.gcode`
+  → `hit-turm-handy_0.6n_0.3mm_PLA_MK3S_4h31m_110.526g.gcode`. Parts are recognized by their shape (`110.5g`,
+  `4h31m`, `0.3mm`, `0.6n`), so order and extra parts don't matter; the model name is what comes before them.
 - Printing the same file several times creates one inbox file (and one log entry) per print. The inbox file is
   named after the end time and printer, not after the G-code file.
 - Inbox file format (version 1): `{"version": 1, "source": "...", "printer": "<inbox key>", "file": "...",

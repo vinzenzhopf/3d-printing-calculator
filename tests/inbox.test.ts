@@ -38,7 +38,7 @@ describe('parseInboxEntry', () => {
 describe('jobFromInbox', () => {
   it('maps the printer by its inbox key (case-insensitive) and pre-fills time and result', () => {
     const job = jobFromInbox(doc(), parseInboxEntry('p', { ...raw, result: 'cancelled' })!, { id: 'j', localDate });
-    expect(job).toMatchObject({ id: 'j', date: '2026-10-03', printerId: 'mk3', name: printName(file), printTimeMin: 260, result: 'cancelled', filaments: [] });
+    expect(job).toMatchObject({ id: 'j', date: '2026-10-03', printerId: 'mk3', name: 'flexi_75_segment', printTimeMin: 260, result: 'cancelled', filaments: [] });
   });
 
   it('falls back to the first active printer for unknown keys', () => {
@@ -53,6 +53,27 @@ describe('jobFromInbox', () => {
     });
     const job = jobFromInbox(d, parseInboxEntry('p', raw)!, { id: 'j', localDate });
     expect(job).toMatchObject({ quoteId: 'q', plateId: 'pl', printTimeMin: 260, filaments: [{ filamentId: 'black', grams: 90 }] });
+  });
+});
+
+describe('jobFromInbox with grams in the file name', () => {
+  const withGrams = 'hit-turm-handy_0.6n_0.3mm_PLA_MK3S_4h31m_110.526g.gcode';
+
+  it('uses the model name and pre-fills a filament row with the slicer grams', () => {
+    const job = jobFromInbox(doc(), parseInboxEntry('p', { ...raw, file: withGrams, durationMin: 275 })!, { id: 'j', localDate });
+    expect(job).toMatchObject({ name: 'hit-turm-handy', printTimeMin: 275, filaments: [{ filamentId: '', grams: 110.526 }] });
+    expect(job.note).toContain('slicer estimate 4h31m');
+    expect(job.note).toContain('110.526 g');
+  });
+
+  it('matches a quote plate by model name and takes the file grams over the plate grams', () => {
+    const d = doc();
+    d.quotes.push({
+      id: 'q', number: 4, title: 'Tower', pricingProfileId: 'standard', status: 'accepted',
+      plates: [{ id: 'pl', name: 'hit-turm-handy_0.4n_0.2mm_PLA_MK3S_6h02m_101.2g', printerId: 'mk3', printTimeMin: 362, runs: 1, filaments: [{ filamentId: 'black', weightG: 101.2 }] }],
+    });
+    const job = jobFromInbox(d, parseInboxEntry('p', { ...raw, file: withGrams })!, { id: 'j', localDate });
+    expect(job).toMatchObject({ quoteId: 'q', plateId: 'pl', filaments: [{ filamentId: 'black', grams: 110.526 }] });
   });
 });
 
