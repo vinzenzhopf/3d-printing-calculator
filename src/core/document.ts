@@ -1,4 +1,4 @@
-import { SCHEMA_VERSION, type AppDocument, type PricingProfile, type TarePreset } from './model';
+import { SCHEMA_VERSION, type AppDocument, type PricingProfile, type SpoolKind } from './model';
 
 /** Starting pricing profiles (requirements PP-2). All editable by the user. */
 export const DEFAULT_PRICING_PROFILES: PricingProfile[] = [
@@ -10,15 +10,14 @@ export const DEFAULT_PRICING_PROFILES: PricingProfile[] = [
 ];
 
 /**
- * Empty-spool weights to start with (FI-6a). Brand values come from the community
- * SpoolmanDB; generic ones are rough averages. All unverified: weigh an empty spool
- * once and save it as a preset.
+ * Empty spools to start with (FI-6a). Brand values come from the community
+ * SpoolmanDB; generic ones are rough averages. Weighing an empty spool replaces them.
  */
-export const DEFAULT_TARE_PRESETS: TarePreset[] = [
-  { id: 'tare-sunlu-plastic', manufacturer: 'SUNLU', productLineId: null, spoolType: 'plastic', emptyG: 130, source: 'SpoolmanDB', verified: false },
-  { id: 'tare-any-plastic', manufacturer: null, productLineId: null, spoolType: 'plastic', emptyG: 200, source: 'rough average', verified: false },
-  { id: 'tare-any-cardboard', manufacturer: null, productLineId: null, spoolType: 'cardboard', emptyG: 140, source: 'rough average', verified: false },
-  { id: 'tare-any-refill', manufacturer: null, productLineId: null, spoolType: 'refill', emptyG: 0, source: 'refills have no spool; set the weight of the reusable spool you use', verified: false },
+export const DEFAULT_SPOOL_KINDS: SpoolKind[] = [
+  { id: 'tare-sunlu-plastic', name: 'SUNLU plastic', manufacturer: 'SUNLU', emptyG: 130, source: 'SpoolmanDB' },
+  { id: 'tare-any-plastic', name: 'Plastic spool', manufacturer: null, emptyG: 200, source: 'rough average' },
+  { id: 'tare-any-cardboard', name: 'Cardboard spool', manufacturer: null, emptyG: 140, source: 'rough average' },
+  { id: 'tare-any-refill', name: 'Refill without spool', manufacturer: null, emptyG: 0, source: 'refills without a core' },
 ];
 
 export function createEmptyDocument(now = new Date()): AppDocument {
@@ -46,7 +45,7 @@ export function createEmptyDocument(now = new Date()): AppDocument {
     customers: [],
     quotes: [],
     spools: [],
-    tarePresets: structuredClone(DEFAULT_TARE_PRESETS),
+    spoolKinds: structuredClone(DEFAULT_SPOOL_KINDS),
     printJobs: [],
   };
 }

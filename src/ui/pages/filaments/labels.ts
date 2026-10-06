@@ -1,7 +1,7 @@
 import { html, nothing } from 'lit';
 import type { PriceSource, ResolvedPrice } from '../../../core/calc/price-resolution';
 import type { AppDocument, Filament, ProductLine, Spool } from '../../../core/model';
-import type { ResolvedTare } from '../../../core/stock';
+import { kindLabel, type ResolvedTare } from '../../../core/stock';
 import type { Option } from '../../fields';
 import { money } from '../../format';
 
@@ -89,19 +89,17 @@ export const SPOOL_STATUS: Option[] = [
   { value: 'discarded', label: 'Discarded' },
 ];
 
-export const SPOOL_TYPES: Option[] = [
-  { value: 'plastic', label: 'Plastic spool' },
-  { value: 'cardboard', label: 'Cardboard spool' },
-  { value: 'refill', label: 'Refill / reusable spool' },
-];
+/** Empty spool kinds for a select; '' = unknown (or "suggested", for purchases). */
+export function kindOptions(doc: AppDocument, none = 'Unknown'): Option[] {
+  return [{ value: '', label: none }, ...doc.spoolKinds.map((k) => ({ value: k.id, label: kindLabel(k) }))];
+}
 
-export const TARE_SOURCE: Record<ResolvedTare['source'], string> = {
-  spool: 'measured',
-  line: 'line preset',
-  manufacturer: 'brand preset',
-  default: 'generic preset',
-  none: 'no preset',
-};
+/** "SUNLU plastic, SpoolmanDB" / "measured on this spool" / "unknown". */
+export function tareText(tare: ResolvedTare): string {
+  if (tare.source === 'spool') return 'measured on this spool';
+  if (tare.kind) return `${tare.kind.name}, ${tare.kind.source}`;
+  return 'unknown: choose the empty spool under Details';
+}
 
 /** Link to a spool's page (also what the printed QR codes point to). */
 export function spoolHref(spool: Spool): string {

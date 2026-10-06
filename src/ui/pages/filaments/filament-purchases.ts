@@ -5,18 +5,14 @@ import type { AppDocument, FilamentPurchase } from '../../../core/model';
 import { splitOrder, type Order, type OrderLine } from '../../../core/orders';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
-import { cellNumber, cellSelect, cellText, type Option } from '../../fields';
+import { cellNumber, cellSelect, cellText } from '../../fields';
 import { money, newId, num, today } from '../../format';
 import { pickFilament } from '../../filament-picker';
-import { filamentLabel, storeDatalist, storeField } from './labels';
+import { filamentLabel, kindOptions, storeDatalist, storeField } from './labels';
 import { ask } from '../../dialogs';
 
-const SPOOL_TYPES: Option[] = [
-  { value: '', label: 'Spool type…' },
-  { value: 'plastic', label: 'Plastic spool' },
-  { value: 'cardboard', label: 'Cardboard spool' },
-  { value: 'refill', label: 'Refill (no spool)' },
-];
+/** For purchases, "no kind" means each spool gets the usual suggestion. */
+const SUGGESTED = 'Empty spool: suggested';
 
 function emptyOrder(): Order {
   return { date: today(), store: '', description: '', totalPrice: 0, shipping: 0, lines: [{ filamentId: '', kg: 1 }] };
@@ -82,10 +78,11 @@ export class FilamentPurchases extends LitElement {
 
   #row(p: FilamentPurchase, cur: string) {
     const f = this.#doc.filaments.find((x) => x.id === p.filamentId);
+    const kind = this.#doc.spoolKinds.find((k) => k.id === p.kindId);
     return html`<tr>
       <td class="text-nowrap">${p.date}</td>
       <td>${p.store}</td>
-      <td class="small" title=${p.listingTitle ?? ''}>${p.description || html`<span class="text-body-secondary">–</span>`}${p.spoolType === 'refill' ? html` <span class="badge text-bg-light border">refill</span>` : nothing}</td>
+      <td class="small" title=${p.listingTitle ?? ''}>${p.description || html`<span class="text-body-secondary">–</span>`}${kind ? html` <span class="badge text-bg-light border" title="Empty spool">${kind.name}</span>` : nothing}</td>
       <td class="small">${f ? filamentLabel(this.#doc, f) : '?'}</td>
       <td class="text-end">${num(p.totalKg, p.totalKg % 1 ? 2 : 0)}</td>
       <td class="text-end text-nowrap">${money(p.totalPrice, cur)}</td>
@@ -106,7 +103,7 @@ export class FilamentPurchases extends LitElement {
       <td>${cellText(p.date, (v) => v && set((x) => (x.date = v)), { type: 'date', title: 'Date' })}</td>
       <td style="min-width: 9rem">${storeField(this.#doc, p.store, (v) => set((x) => (x.store = v)))}</td>
       <td>${cellText(p.description, (v) => set((x) => (x.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}
-        <div class="mt-1">${cellSelect(p.spoolType ?? '', SPOOL_TYPES, (v) => set((x) => (x.spoolType = (v || null) as FilamentPurchase['spoolType'])), true, 'Spool type')}</div></td>
+        <div class="mt-1">${cellSelect(p.kindId ?? '', kindOptions(this.#doc, SUGGESTED), (v) => set((x) => (v ? (x.kindId = v) : delete x.kindId)), true, 'Empty spool')}</div></td>
       <td style="min-width: 18rem">${pickFilament(p.filamentId, (v) => { if (v) set((x) => (x.filamentId = v)); })}</td>
       <td style="width: 6rem">${cellNumber(p.totalKg, (v) => v && set((x) => { x.totalKg = v; x.packageWeightKg = v / (x.quantity || 1); }), { min: 0.01, step: 0.01, title: 'kg' })}</td>
       <td style="width: 7rem">${cellNumber(p.totalPrice, (v) => v !== null && set((x) => (x.totalPrice = v)), { min: 0, step: 0.01, title: 'Price incl. shipping share' })}</td>
@@ -133,7 +130,7 @@ export class FilamentPurchases extends LitElement {
           <div class="col-md-2">${cellText(order.date, (v) => edit((o) => (o.date = v)), { type: 'date', title: 'Date' })}</div>
           <div class="col-md-2">${storeField(this.#doc, order.store, (v) => edit((o) => (o.store = v)))}</div>
           <div class="col-md-4">${cellText(order.description, (v) => edit((o) => (o.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}</div>
-          <div class="col-md-2">${cellSelect(order.spoolType ?? '', SPOOL_TYPES, (v) => edit((o) => (o.spoolType = (v || null) as Order['spoolType'])), true, 'Spool type')}</div>
+          <div class="col-md-2">${cellSelect(order.kindId ?? '', kindOptions(this.#doc, SUGGESTED), (v) => edit((o) => (v ? (o.kindId = v) : delete o.kindId)), true, 'Empty spool')}</div>
         </div>
         <table class="table table-sm align-middle mb-2">
           <thead><tr><th>Filament</th><th>kg</th><th>Own price (optional)</th><th class="text-end">Resulting</th><th></th></tr></thead>

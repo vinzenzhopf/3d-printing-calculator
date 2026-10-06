@@ -14,7 +14,7 @@ const ROWS: [string, keyof DocumentSummary][] = [
 /** Readable names of the document parts that differ between the two versions. */
 const AREAS: Record<string, string> = {
   settings: 'settings', pricingProfiles: 'pricing profiles', quotes: 'quotes', customers: 'customers', filaments: 'filaments',
-  productLines: 'product lines', purchases: 'purchases', spools: 'spools / stock', tarePresets: 'empty-spool weights',
+  productLines: 'product lines', purchases: 'purchases', spools: 'spools / stock', spoolKinds: 'empty spools',
   printers: 'printers', machineCosts: 'machine costs', plannedInvestments: 'reserves', materialProfiles: 'material profiles',
   printJobs: 'print log',
 };

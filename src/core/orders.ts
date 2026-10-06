@@ -15,7 +15,7 @@ export interface Order {
   totalPrice: number;
   shipping: number;
   lines: OrderLine[];
-  spoolType?: FilamentPurchase['spoolType'];
+  kindId?: Id;
 }
 
 /**
@@ -44,7 +44,7 @@ export function splitOrder(order: Order, newId: () => Id): FilamentPurchase[] {
       store: order.store,
       description: order.description,
       filamentId: l.filamentId,
-      spoolType: order.spoolType ?? null,
+      ...(order.kindId ? { kindId: order.kindId } : {}),
       packSizeKg,
       packageWeightKg: l.kg,
       quantity: 1,

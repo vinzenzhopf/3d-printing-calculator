@@ -17,7 +17,7 @@ const printer: Printer = {
 
 function spool(sid: string, filamentId: string, status: Spool['status'], grams: number | null): Spool {
   return {
-    id: sid, filamentId, label: sid, nominalG: 1000, spoolType: 'plastic', status,
+    id: sid, filamentId, label: sid, nominalG: 1000, status,
     movements: grams === null ? [] : [{ id: id(), date, kind: 'initial', grams }],
   };
 }

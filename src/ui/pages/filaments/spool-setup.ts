@@ -1,13 +1,13 @@
 import { LitElement, html, nothing, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { LABEL_LAYOUTS, buildLabelPdf, labelCode, labelCodes, qrMatrix, type LabelLayout } from '../../../core/labels';
-import type { AppDocument, SpoolType, TarePreset } from '../../../core/model';
+import type { AppDocument, SpoolKind } from '../../../core/model';
 import { isLabelCode } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
-import { cellNumber, cellSelect, cellText, numberField, selectField, switchField, textField, type Option } from '../../fields';
+import { cellNumber, cellText, numberField, selectField, switchField, textField, type Option } from '../../fields';
 import { newId } from '../../format';
-import { SPOOL_TYPES, lineLabel } from './labels';
+import { tell } from '../../dialogs';
 
 const CUSTOM = 'custom';
 
@@ -37,9 +37,9 @@ export class SpoolSetup extends LitElement {
 
   override render() {
     return html`
-      <div class="row g-3">
-        <div class="col-xl-7">${this.#labels()}</div>
-        <div class="col-xl-5">${this.#presets()}</div>
+      <div class="d-flex flex-column gap-3">
+        ${this.#labels()}
+        ${this.#kinds()}
       </div>
     `;
   }
@@ -151,31 +151,40 @@ export class SpoolSetup extends LitElement {
     }
   }
 
-  // --- Empty-spool weights ------------------------------------------------------
+  // --- Empty spools ------------------------------------------------------------
 
-  #presets() {
+  #kinds() {
     const doc = this.#doc;
-    const lines: Option[] = [{ value: '', label: 'any line' }, ...doc.productLines.map((l) => ({ value: l.id, label: lineLabel(l) }))];
-    const set = (id: string, mutate: (p: TarePreset) => void) => void this.#update((d) => mutate(d.tarePresets.find((p) => p.id === id)!));
+    const set = (id: string, mutate: (k: SpoolKind) => void) => void this.#update((d) => mutate(d.spoolKinds.find((k) => k.id === id)!));
+    const uses = (id: string) => doc.spools.filter((s) => s.kindId === id).length;
     return html`
       <section class="card card-body">
-        <h2 class="h5">Empty-spool weights</h2>
-        <p class="small text-body-secondary">Turn scale readings into filament weight. A spool's own measured weight wins, then product line, then brand, then the generic values. Weighing an empty spool ("This is the empty spool") updates them.</p>
+        <h2 class="h5">Empty spools</h2>
+        <p class="small text-body-secondary">
+          The kinds of empty spools you have, e.g. "SUNLU plastic + cardboard" or "TPU 500 g spool". Every spool points
+          to one, and its weight turns scale readings into filament weight. New spools suggest the kind used last for the
+          same product line or brand. "This is the empty spool" on a spool page updates the weight here.
+        </p>
         <div class="table-responsive"><table class="table table-sm align-middle">
-          <thead><tr><th>Brand</th><th>Product line</th><th>Spool</th><th>Empty (g)</th><th title="Verified">✓</th><th></th></tr></thead>
+          <thead><tr><th style="min-width: 16rem">Name</th><th style="min-width: 8rem">Brand</th><th style="width: 7rem">Empty (g)</th><th>Weight from</th><th class="text-end">Spools</th><th></th></tr></thead>
           <tbody>
-            ${doc.tarePresets.map((p) => html`<tr title=${p.source}>
-              <td>${cellText(p.manufacturer, (v) => set(p.id, (x) => (x.manufacturer = v || null)), { title: 'Brand', placeholder: 'any' })}</td>
-              <td>${cellSelect(p.productLineId ?? '', lines, (v) => set(p.id, (x) => (x.productLineId = v || null)), true, 'Product line')}</td>
-              <td>${cellSelect(p.spoolType, SPOOL_TYPES, (v) => set(p.id, (x) => (x.spoolType = v as SpoolType)), true, 'Spool type')}</td>
-              <td style="width: 6rem">${cellNumber(p.emptyG, (v) => set(p.id, (x) => (x.emptyG = v ?? 0)), { min: 0, title: 'Empty grams' })}</td>
-              <td><input class="form-check-input" type="checkbox" aria-label="Verified" .checked=${p.verified} @change=${(e: Event) => set(p.id, (x) => (x.verified = (e.target as HTMLInputElement).checked))} /></td>
-              <td><button class="btn btn-sm btn-link text-danger" title="Delete" @click=${() => void this.#update((d) => (d.tarePresets = d.tarePresets.filter((x) => x.id !== p.id)))}>✕</button></td>
+            ${doc.spoolKinds.map((k) => html`<tr>
+              <td>${cellText(k.name, (v) => v && set(k.id, (x) => (x.name = v)), { title: 'Name' })}</td>
+              <td>${cellText(k.manufacturer, (v) => set(k.id, (x) => (x.manufacturer = v || null)), { title: 'Brand', placeholder: 'any' })}</td>
+              <td>${cellNumber(k.emptyG, (v) => set(k.id, (x) => { x.emptyG = v ?? 0; x.source = 'entered by hand'; }), { min: 0, title: 'Empty grams' })}</td>
+              <td class="small text-body-secondary">${k.source}</td>
+              <td class="text-end">${uses(k.id)}</td>
+              <td><button class="btn btn-sm btn-link text-danger" title="Delete" @click=${() => this.#deleteKind(k, uses(k.id))}>✕</button></td>
             </tr>`)}
           </tbody>
         </table></div>
-        <div><button class="btn btn-sm btn-outline-primary" @click=${() => void this.#update((d) => d.tarePresets.push({ id: newId(), manufacturer: null, productLineId: null, spoolType: 'plastic', emptyG: 200, source: 'manual', verified: false }))}>+ Add weight</button></div>
+        <div><button class="btn btn-sm btn-outline-primary" @click=${() => void this.#update((d) => d.spoolKinds.push({ id: newId(), name: 'New empty spool', manufacturer: null, emptyG: 200, source: 'entered by hand' }))}>+ Add empty spool</button></div>
       </section>
     `;
+  }
+
+  async #deleteKind(k: SpoolKind, uses: number) {
+    if (uses > 0) return tell(`"${k.name}" is used by ${uses} spool(s). Give them another empty spool first.`);
+    await this.#update((d) => (d.spoolKinds = d.spoolKinds.filter((x) => x.id !== k.id)));
   }
 }

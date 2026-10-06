@@ -1,14 +1,14 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { AppDocument, Spool, SpoolType } from '../../core/model';
-import { assignLabel, findSpool, isLabelCode, remainingG, resolveTare, spoolFromLabel, weighIn } from '../../core/stock';
+import type { AppDocument, Spool } from '../../core/model';
+import { assignLabel, findSpool, isLabelCode, remainingG, resolveTare, spoolFromLabel, suggestKind, weighIn } from '../../core/stock';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { pickFilament } from '../filament-picker';
 import { scanAndOpen } from '../qr-scanner';
 import { cellNumber, cellSelect, cellText, switchField } from '../fields';
 import { money, newId, num, today } from '../format';
-import { SPOOL_STATUS, SPOOL_TYPES, TARE_SOURCE, filamentLabel, lineLabel } from './filaments/labels';
+import { SPOOL_STATUS, filamentLabel, kindOptions, tareText } from './filaments/labels';
 import { ask } from '../dialogs';
 
 /**
@@ -87,7 +87,6 @@ export class SpoolPage extends LitElement {
     const doc = this.#doc;
     const tare = resolveTare(doc, s);
     const preview = this.grossG !== null && !this.isEmptySpool ? weighIn(doc, s, this.grossG, today(), '') : null;
-    const line = doc.productLines.find((l) => l.id === doc.filaments.find((f) => f.id === s.filamentId)?.productLineId);
     return html`
       <section class="card card-body mb-3">
         <h2 class="h6">Weigh</h2>
@@ -96,9 +95,9 @@ export class SpoolPage extends LitElement {
             .value=${this.grossG === null ? '' : String(this.grossG)}
             @input=${(e: Event) => { const v = (e.target as HTMLInputElement).valueAsNumber; this.grossG = Number.isFinite(v) ? v : null; this.saved = ''; }} />
         </label>
-        <div class="small mb-2">Empty spool: <strong>${tare.grams === null ? '?' : `${tare.grams} g`}</strong> (${TARE_SOURCE[tare.source]}${tare.verified ? '' : ', unverified'})</div>
+        <div class="small mb-2">Empty spool: <strong>${tare.grams === null ? '?' : `${tare.grams} g`}</strong> (${tareText(tare)})</div>
         ${switchField('This is the empty spool', this.isEmptySpool, (v) => (this.isEmptySpool = v), { help: 'Marks it empty and stores the weight as its empty weight.' })}
-        ${this.isEmptySpool && line ? switchField(`Use as empty weight for all ${lineLabel(line)} (${s.spoolType ?? 'plastic'})`, this.saveAsPreset, (v) => (this.saveAsPreset = v)) : nothing}
+        ${this.isEmptySpool && tare.kind ? switchField(`Also use as the weight of all "${tare.kind.name}" spools`, this.saveAsPreset, (v) => (this.saveAsPreset = v)) : nothing}
         ${preview ? html`<div class="fs-4 mb-2">→ <strong>${num(preview.netG)} g</strong> <span class="fs-6 text-body-secondary">(${preview.movement.grams >= 0 ? '+' : ''}${num(preview.movement.grams)} g)</span></div>` : nothing}
         <button class="btn btn-primary btn-lg w-100" ?disabled=${this.grossG === null} @click=${() => this.#saveWeighIn(s)}>Save</button>
         ${this.saved ? html`<div class="text-success mt-2">${this.saved}</div>` : nothing}
@@ -112,8 +111,6 @@ export class SpoolPage extends LitElement {
     const doc = this.#doc;
     const date = today();
     if (this.isEmptySpool) {
-      const line = doc.productLines.find((l) => l.id === doc.filaments.find((f) => f.id === s.filamentId)?.productLineId);
-      const type = s.spoolType ?? 'plastic';
       const savePreset = this.saveAsPreset;
       await this.#store.store.update((d) => {
         const x = d.spools.find((y) => y.id === s.id)!;
@@ -121,11 +118,8 @@ export class SpoolPage extends LitElement {
         x.status = 'empty';
         const left = remainingG(x);
         if (left) x.movements.push({ id: newId(), date, kind: 'weigh-in', grams: -left, grossG: gross, tareG: gross, note: 'Empty spool' });
-        if (savePreset && line) {
-          const existing = d.tarePresets.find((p) => p.productLineId === line.id && p.spoolType === type);
-          if (existing) Object.assign(existing, { emptyG: gross, source: `measured ${date}`, verified: true });
-          else d.tarePresets.push({ id: newId(), manufacturer: line.manufacturer, productLineId: line.id, spoolType: type, emptyG: gross, source: `measured ${date}`, verified: true });
-        }
+        const kind = d.spoolKinds.find((k) => k.id === x.kindId);
+        if (savePreset && kind) Object.assign(kind, { emptyG: gross, source: `measured ${date}` });
       });
       this.saved = 'Marked empty.';
     } else {
@@ -151,7 +145,7 @@ export class SpoolPage extends LitElement {
           <div class="col-6"><label class="small d-block">Status${cellSelect(s.status, SPOOL_STATUS, (v) => set((x) => (x.status = v as Spool['status'])), true, 'Status')}</label></div>
           <div class="col-6"><label class="small d-block">Location${cellText(s.location, (v) => set((x) => (x.location = v || undefined)), { title: 'Location', placeholder: 'shelf, dry box…' })}</label></div>
           <div class="col-6"><label class="small d-block">Size (g)${cellNumber(s.nominalG, (v) => v && set((x) => (x.nominalG = v)), { min: 1, step: 50, title: 'Nominal grams' })}</label></div>
-          <div class="col-6"><label class="small d-block">Spool${cellSelect(s.spoolType ?? 'plastic', SPOOL_TYPES, (v) => set((x) => (x.spoolType = v as SpoolType)), true, 'Spool type')}</label></div>
+          <div class="col-6"><label class="small d-block">Empty spool${cellSelect(s.kindId ?? '', kindOptions(doc), (v) => set((x) => (v ? (x.kindId = v) : delete x.kindId)), true, 'Empty spool')}</label></div>
           <div class="col-6"><label class="small d-block">Own empty weight (g)${cellNumber(s.tareG ?? null, (v) => set((x) => (v === null ? delete x.tareG : (x.tareG = v))), { min: 0, allowEmpty: true, title: 'Own empty weight' })}</label></div>
           <div class="col-6"><label class="small d-block">Correct stock by (g)${cellNumber(null, (v) => { if (v) set((x) => x.movements.push({ id: newId(), date: today(), kind: 'adjust', grams: v, note: 'Manual correction' })); }, { allowEmpty: true, title: 'Correction in grams' })}</label></div>
           <div class="col-12"><label class="small d-block">Label${cellText(s.label, (v) => this.#relabel(s, v), { title: 'Label', placeholder: 'e.g. L0042' })}</label>
@@ -213,7 +207,7 @@ export class SpoolPage extends LitElement {
       .filter((s) => !q || `${s.label} ${label(s)} ${s.location ?? ''}`.toLowerCase().includes(q))
       .sort((a, b) => Number(isLabelCode(a.label)) - Number(isLabelCode(b.label)) || label(a).localeCompare(label(b)));
     const ns = this.newSpool;
-    const tare = ns.filamentId ? resolveTare(doc, { filamentId: ns.filamentId, spoolType: ns.spoolType }) : null;
+    const tare = ns.filamentId ? resolveTare(doc, { kindId: ns.kindId || undefined }) : null;
     const purchases = doc.purchases.filter((p) => p.filamentId === ns.filamentId).sort((a, b) => b.date.localeCompare(a.date));
     const set = (patch: Partial<NewSpoolDraft>) => (this.newSpool = { ...this.newSpool, ...patch });
     return html`
@@ -223,7 +217,7 @@ export class SpoolPage extends LitElement {
       </section>
       <section class="card card-body mb-3">
         <h2 class="h6">New spool</h2>
-        <div class="mb-2">${pickFilament(ns.filamentId, (v) => set({ filamentId: v, purchaseId: '' }))}</div>
+        <div class="mb-2">${pickFilament(ns.filamentId, (v) => set({ filamentId: v, purchaseId: '', kindId: suggestKind(doc, v) ?? '' }))}</div>
         ${switchField('Sealed / unopened (full weight, no weighing)', ns.sealed, (v) => set({ sealed: v }))}
         ${ns.sealed
           ? nothing
@@ -231,14 +225,14 @@ export class SpoolPage extends LitElement {
               <input class="form-control form-control-lg" type="number" inputmode="decimal" min="0" step="1" .value=${ns.grossG === null ? '' : String(ns.grossG)}
                 @input=${(e: Event) => { const v = (e.target as HTMLInputElement).valueAsNumber; set({ grossG: Number.isFinite(v) ? v : null }); }} />
               <span class="form-text d-block">${tare && tare.grams !== null
-                ? html`Empty spool ${tare.grams} g (${TARE_SOURCE[tare.source]})${ns.grossG !== null ? html` → <strong>${num(Math.max(ns.grossG - tare.grams, 0))} g</strong> filament` : nothing}`
-                : 'Choose the filament first.'} Leave empty to weigh later.</span>
+                ? html`Empty spool ${tare.grams} g (${tareText(tare)})${ns.grossG !== null ? html` → <strong>${num(Math.max(ns.grossG - tare.grams, 0))} g</strong> filament` : nothing}`
+                : ns.filamentId ? 'Choose the empty spool below.' : 'Choose the filament first.'} Leave empty to weigh later.</span>
             </label>`}
         <div class="row g-2 mb-2">
           <div class="col-6"><label class="small d-block">Size (g)${cellNumber(ns.nominalG, (v) => set({ nominalG: v ?? 1000 }), { min: 1, step: 50, title: 'Nominal grams' })}</label></div>
-          <div class="col-6"><label class="small d-block">Spool${cellSelect(ns.spoolType, SPOOL_TYPES, (v) => set({ spoolType: v as SpoolType }), true, 'Spool type')}</label></div>
+          <div class="col-6"><label class="small d-block">Empty spool${cellSelect(ns.kindId, kindOptions(doc), (v) => set({ kindId: v }), true, 'Empty spool')}</label></div>
           ${purchases.length
-            ? html`<div class="col-12"><label class="small d-block">From purchase (optional)${cellSelect(ns.purchaseId, [{ value: '', label: '–' }, ...purchases.map((p) => ({ value: p.id, label: `${p.date}${p.store ? ` · ${p.store}` : ''} · ${num(p.totalKg, 2)} kg · ${money(p.totalPrice / p.totalKg, doc.settings.currency)}/kg` }))], (v) => set({ purchaseId: v }), true, 'Purchase')}</label></div>`
+            ? html`<div class="col-12"><label class="small d-block">From purchase (optional)${cellSelect(ns.purchaseId, [{ value: '', label: '–' }, ...purchases.map((p) => ({ value: p.id, label: `${p.date}${p.store ? ` · ${p.store}` : ''} · ${num(p.totalKg, 2)} kg · ${money(p.totalPrice / p.totalKg, doc.settings.currency)}/kg` }))], (v) => set({ purchaseId: v, kindId: suggestKind(doc, ns.filamentId, v || undefined) ?? '' }), true, 'Purchase')}</label></div>`
             : nothing}
         </div>
         <button class="btn btn-primary btn-lg w-100" ?disabled=${!ns.filamentId} @click=${() => this.#createWithLabel(code)}>Save spool ${code}</button>
@@ -279,7 +273,7 @@ export class SpoolPage extends LitElement {
     const ns = this.newSpool;
     try {
       await this.#store.store.update((d) => {
-        d.spools.push(spoolFromLabel(d, { code, filamentId: ns.filamentId, nominalG: ns.nominalG, spoolType: ns.spoolType, sealed: ns.sealed, grossG: ns.grossG, purchaseId: ns.purchaseId || undefined, date: today() }, newId));
+        d.spools.push(spoolFromLabel(d, { code, filamentId: ns.filamentId, nominalG: ns.nominalG, kindId: ns.kindId || undefined, sealed: ns.sealed, grossG: ns.grossG, purchaseId: ns.purchaseId || undefined, date: today() }, newId));
       });
       saveDraft(ns);
       // Next label starts with the same filament/size/type, but a fresh reading.
@@ -295,7 +289,7 @@ export class SpoolPage extends LitElement {
 interface NewSpoolDraft {
   filamentId: string;
   nominalG: number;
-  spoolType: SpoolType;
+  kindId: string;
   sealed: boolean;
   grossG: number | null;
   purchaseId: string;
@@ -304,7 +298,7 @@ interface NewSpoolDraft {
 const DRAFT_KEY = '3dpc.newSpoolDraft';
 
 function loadDraft(): NewSpoolDraft {
-  const fallback: NewSpoolDraft = { filamentId: '', nominalG: 1000, spoolType: 'plastic', sealed: false, grossG: null, purchaseId: '' };
+  const fallback: NewSpoolDraft = { filamentId: '', nominalG: 1000, kindId: '', sealed: false, grossG: null, purchaseId: '' };
   try {
     const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<NewSpoolDraft> | null;
     return { ...fallback, ...saved, sealed: false, grossG: null, purchaseId: '' };
@@ -316,7 +310,7 @@ function loadDraft(): NewSpoolDraft {
 function saveDraft(d: NewSpoolDraft): void {
   try {
     // Not "sealed": booking an opened spool as full by accident would be wrong.
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ filamentId: d.filamentId, nominalG: d.nominalG, spoolType: d.spoolType }));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ filamentId: d.filamentId, nominalG: d.nominalG, kindId: d.kindId }));
   } catch {
     // storage blocked: just no defaults next time
   }

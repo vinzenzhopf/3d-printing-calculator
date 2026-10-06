@@ -6,7 +6,7 @@ import type { AppDocument, FilamentPurchase, Spool } from '../src/core/model';
 import {
   assignLabel, findSpool, isLabelCode, spoolFromLabel, spoolKeyFromScan,
   gramsToMeters, labelGenerator, metersToGrams, remainingG, resolveTare, spoolsForPurchase,
-  stockByFilament, suggestedSpoolCount, weighIn,
+  stockByFilament, suggestKind, suggestedSpoolCount, weighIn,
 } from '../src/core/stock';
 
 const date = '2026-10-02';
@@ -21,22 +21,50 @@ function doc(): AppDocument {
   for (const [id, line] of [['pla', 'sunlu-pla'], ['petg', 'sunlu-petg'], ['prusa', 'prusa-petg']]) {
     d.filaments.push({ id: id!, productLineId: line!, color: 'x', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' });
   }
-  d.tarePresets.push({ id: 'petg', manufacturer: 'SUNLU', productLineId: 'sunlu-petg', spoolType: 'plastic', emptyG: 209, source: 'test', verified: false });
+  d.spoolKinds.push({ id: 'sunlu-cardboard', name: 'SUNLU plastic + cardboard', manufacturer: 'SUNLU', emptyG: 160, source: 'test' });
   return d;
 }
 
 function spool(extra: Partial<Spool> = {}): Spool {
-  return { id: 's', filamentId: 'pla', label: 'S1', nominalG: 1000, spoolType: 'plastic', status: 'open', movements: [], ...extra };
+  return { id: 's', filamentId: 'pla', label: 'S1', nominalG: 1000, kindId: 'tare-sunlu-plastic', status: 'open', movements: [], ...extra };
 }
 
 describe('resolveTare', () => {
-  it('uses the most specific match: own, line, manufacturer (case-insensitive), default', () => {
+  it("uses the spool's own measurement, else its kind, else unknown", () => {
     const d = doc();
     expect(resolveTare(d, spool({ tareG: 155 }))).toMatchObject({ grams: 155, source: 'spool' });
-    expect(resolveTare(d, spool({ filamentId: 'petg' }))).toMatchObject({ grams: 209, source: 'line' });
-    expect(resolveTare(d, spool())).toMatchObject({ grams: 130, source: 'manufacturer' });
-    expect(resolveTare(d, spool({ filamentId: 'prusa' }))).toMatchObject({ grams: 200, source: 'default' });
-    expect(resolveTare(d, spool({ spoolType: 'refill' }))).toMatchObject({ grams: 0, source: 'default' });
+    expect(resolveTare(d, spool())).toMatchObject({ grams: 130, source: 'kind', kind: { name: 'SUNLU plastic' } });
+    expect(resolveTare(d, spool({ kindId: 'sunlu-cardboard' }))).toMatchObject({ grams: 160, source: 'kind' });
+    expect(resolveTare(d, spool({ kindId: undefined }))).toMatchObject({ grams: null, source: 'none' });
+    expect(resolveTare(d, spool({ kindId: 'deleted' }))).toMatchObject({ grams: null, source: 'none' });
+  });
+});
+
+describe('suggestKind', () => {
+  it("suggests the brand's kind, then a generic one", () => {
+    const d = doc();
+    expect(suggestKind(d, 'petg')).toBe('tare-sunlu-plastic'); // "Sunlu" matches "SUNLU"
+    expect(suggestKind(d, 'prusa')).toBe('tare-any-plastic');
+  });
+
+  it('prefers the kind used last for the same line, then the same brand', () => {
+    const d = doc();
+    d.spools.push(spool({ id: 'a', filamentId: 'petg', kindId: 'sunlu-cardboard' }));
+    expect(suggestKind(d, 'pla')).toBe('sunlu-cardboard'); // same brand
+    d.spools.push(spool({ id: 'b', filamentId: 'pla', kindId: 'tare-any-cardboard' }));
+    expect(suggestKind(d, 'pla')).toBe('tare-any-cardboard'); // same line wins
+    expect(suggestKind(d, 'petg')).toBe('sunlu-cardboard');
+  });
+
+  it("takes the purchase's kind first (e.g. a pack of refills)", () => {
+    const d = doc();
+    d.purchases.push({ id: 'p', date, store: 'x', description: '', filamentId: 'pla', packageWeightKg: 1, quantity: 3, totalPrice: 30, totalKg: 3, kindId: 'tare-any-refill' });
+    d.spools.push(spool({ id: 'a', filamentId: 'pla', kindId: 'sunlu-cardboard' }));
+    expect(suggestKind(d, 'pla', 'p')).toBe('tare-any-refill');
+    expect(suggestKind(d, 'pla')).toBe('sunlu-cardboard');
+    let n = 0;
+    const [first] = spoolsForPurchase(d.purchases[0]!, 3, { newId: () => `id${n++}`, nextLabel: labelGenerator(d), date, kindId: suggestKind(d, 'pla', 'p') });
+    expect(first?.kindId).toBe('tare-any-refill');
   });
 });
 
@@ -96,12 +124,50 @@ describe('length and weight', () => {
   });
 });
 
-describe('schema 2 migration', () => {
-  it('adds spools and default tare presets to version 1 documents', () => {
+describe('spool migrations', () => {
+  it('adds spools and the default empty spools to version 1 documents', () => {
     const { doc: d } = loadDocument({ schemaVersion: 1 });
     expect(d.schemaVersion).toBe(SCHEMA_VERSION);
     expect(d.spools).toEqual([]);
-    expect(d.tarePresets.length).toBeGreaterThan(0);
+    expect(d.spoolKinds.map((k) => k.id)).toContain('tare-sunlu-plastic');
+  });
+
+  it('turns tare presets into spool kinds and keeps every spool on the weight it had', () => {
+    const lines = [
+      { id: 'sunlu-pla', manufacturer: 'SUNLU', name: 'PLA+' },
+      { id: 'sunlu-petg', manufacturer: 'SUNLU', name: 'PETG' },
+      { id: 'prusa-petg', manufacturer: 'Prusa', name: 'PETG' },
+    ];
+    const filaments = [{ id: 'pla', productLineId: 'sunlu-pla' }, { id: 'petg', productLineId: 'sunlu-petg' }, { id: 'prusa', productLineId: 'prusa-petg' }];
+    const tarePresets = [
+      { id: 'sunlu', manufacturer: 'SUNLU', productLineId: null, spoolType: 'plastic', emptyG: 130, source: 'SpoolmanDB', verified: false },
+      { id: 'petg', manufacturer: 'SUNLU', productLineId: 'sunlu-petg', spoolType: 'plastic', emptyG: 209, source: 'measured', verified: true },
+      { id: 'any', manufacturer: null, productLineId: null, spoolType: 'plastic', emptyG: 200, source: 'avg', verified: false },
+      { id: 'refill', manufacturer: null, productLineId: null, spoolType: 'refill', emptyG: 0, source: 'avg', verified: false },
+      // brand field used as a description
+      { id: 'full', manufacturer: 'SUNLU Full Plastic', productLineId: null, spoolType: 'plastic', emptyG: 180, source: 'x', verified: false },
+      { id: 'generic', manufacturer: 'Generic', productLineId: null, spoolType: 'cardboard', emptyG: 140, source: 'x', verified: false },
+    ];
+    const s = (id: string, filamentId: string, spoolType: string | null) => ({ id, filamentId, label: id, nominalG: 1000, spoolType, status: 'open', movements: [] });
+    const { doc: d, warnings } = loadDocument({
+      schemaVersion: 3, productLines: lines, filaments, tarePresets,
+      purchases: [
+        { id: 'p1', date, store: 'x', description: '', filamentId: 'pla', spoolType: 'refill', packageWeightKg: 1, quantity: 1, totalPrice: 10, totalKg: 1 },
+        { id: 'p2', date, store: 'x', description: '', filamentId: 'pla', spoolType: 'plastic', packageWeightKg: 1, quantity: 1, totalPrice: 10, totalKg: 1 },
+      ],
+      spools: [s('a', 'pla', 'plastic'), s('b', 'petg', 'plastic'), s('c', 'prusa', null), s('d', 'pla', 'refill'), s('e', 'pla', 'cardboard')],
+    });
+    expect(d.spoolKinds.map((k) => [k.id, k.name, k.emptyG])).toEqual([
+      ['sunlu', 'SUNLU plastic', 130], ['petg', 'SUNLU PETG plastic', 209], ['any', 'Plastic spool', 200], ['refill', 'Refill without spool', 0],
+      ['full', 'SUNLU Full Plastic', 180], ['generic', 'Generic cardboard', 140],
+    ]);
+    expect(d.spoolKinds.map((k) => k.manufacturer)).toEqual(['SUNLU', 'SUNLU', null, null, 'SUNLU', null]);
+    expect(d.spools.map((x) => x.kindId)).toEqual(['sunlu', 'petg', 'any', 'refill', undefined]);
+    expect(d.spools.every((x) => !('spoolType' in x))).toBe(true);
+    expect('tarePresets' in d).toBe(false);
+    expect(d.purchases.map((p) => p.kindId)).toEqual(['refill', undefined]);
+    expect(d.purchases.every((p) => !('spoolType' in p))).toBe(true);
+    expect(warnings).toEqual([]);
   });
 });
 
@@ -124,7 +190,7 @@ describe('spool labels', () => {
 describe('spoolFromLabel (onboarding)', () => {
   let n = 0;
   const id = () => `x${n++}`;
-  const base = { code: 'l0007', filamentId: 'pla', nominalG: 1000, spoolType: 'plastic' as const, date };
+  const base = { code: 'l0007', filamentId: 'pla', nominalG: 1000, kindId: 'tare-sunlu-plastic', date };
 
   it('creates an opened spool and weighs it in one step', () => {
     const s = spoolFromLabel(doc(), { ...base, sealed: false, grossG: 730 }, id);

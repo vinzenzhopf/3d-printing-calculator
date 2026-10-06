@@ -1,4 +1,4 @@
-import type { AppDocument, FilamentPurchase, Id, IsoDate, Spool, SpoolType, StockMovement } from './model';
+import type { AppDocument, FilamentPurchase, Id, IsoDate, Spool, SpoolKind, StockMovement } from './model';
 
 /** Remaining net grams, or null when the spool was never weighed / booked (FI-6). */
 export function remainingG(spool: Spool): number | null {
@@ -6,31 +6,51 @@ export function remainingG(spool: Spool): number | null {
   return spool.movements.reduce((sum, m) => sum + m.grams, 0);
 }
 
-export type TareSource = 'spool' | 'line' | 'manufacturer' | 'default' | 'none';
+export type TareSource = 'spool' | 'kind' | 'none';
 
 export interface ResolvedTare {
   grams: number | null;
   source: TareSource;
-  presetId?: Id;
-  verified: boolean;
+  kind?: SpoolKind;
 }
 
-/** Empty-spool weight, most specific first (FI-6a): own measurement → line → manufacturer → any. */
-export function resolveTare(doc: AppDocument, spool: Pick<Spool, 'filamentId' | 'spoolType' | 'tareG'>): ResolvedTare {
-  if (spool.tareG !== undefined) return { grams: spool.tareG, source: 'spool', verified: true };
-  const type: SpoolType = spool.spoolType ?? 'plastic';
-  const filament = doc.filaments.find((f) => f.id === spool.filamentId);
-  const line = doc.productLines.find((l) => l.id === filament?.productLineId);
-  const presets = doc.tarePresets.filter((p) => p.spoolType === type);
-  const pick = (source: TareSource, match: (p: AppDocument['tarePresets'][number]) => boolean): ResolvedTare | null => {
-    const p = presets.find(match);
-    return p ? { grams: p.emptyG, source, presetId: p.id, verified: p.verified } : null;
+/** Empty-spool weight (FI-6a): this spool's own measurement, else its kind's weight. */
+export function resolveTare(doc: AppDocument, spool: Pick<Spool, 'kindId' | 'tareG'>): ResolvedTare {
+  const kind = spool.kindId ? doc.spoolKinds.find((k) => k.id === spool.kindId) : undefined;
+  if (spool.tareG !== undefined) return { grams: spool.tareG, source: 'spool', ...(kind ? { kind } : {}) };
+  return kind ? { grams: kind.emptyG, source: 'kind', kind } : { grams: null, source: 'none' };
+}
+
+/**
+ * Empty spool kind for a new spool of this filament: the purchase's kind if it
+ * has one, else the one used last for the same product line, else for the same
+ * brand, else the brand's own kind, else a generic one. Unpacked refills are
+ * changed by hand.
+ */
+export function suggestKind(doc: AppDocument, filamentId: Id, purchaseId?: Id): Id | undefined {
+  const fromPurchase = purchaseId ? doc.purchases.find((p) => p.id === purchaseId)?.kindId : undefined;
+  if (fromPurchase && doc.spoolKinds.some((k) => k.id === fromPurchase)) return fromPurchase;
+  const brandOf = (fid: Id) => {
+    const line = doc.productLines.find((l) => l.id === doc.filaments.find((f) => f.id === fid)?.productLineId);
+    return { lineId: line?.id, brand: line?.manufacturer.toLowerCase() };
   };
+  const target = brandOf(filamentId);
+  const known = new Set(doc.spoolKinds.map((k) => k.id));
+  const used = [...doc.spools].reverse().filter((s) => s.kindId && known.has(s.kindId));
+  const sameLine = used.find((s) => target.lineId && brandOf(s.filamentId).lineId === target.lineId);
+  const sameBrand = used.find((s) => target.brand && brandOf(s.filamentId).brand === target.brand);
   return (
-    (line && pick('line', (p) => p.productLineId === line.id)) ||
-    (line && pick('manufacturer', (p) => p.productLineId === null && p.manufacturer?.toLowerCase() === line.manufacturer.toLowerCase())) ||
-    pick('default', (p) => p.productLineId === null && p.manufacturer === null) || { grams: null, source: 'none', verified: false }
+    sameLine?.kindId ??
+    sameBrand?.kindId ??
+    doc.spoolKinds.find((k) => target.brand && k.manufacturer?.toLowerCase() === target.brand)?.id ??
+    doc.spoolKinds.find((k) => k.manufacturer === null)?.id ??
+    doc.spoolKinds[0]?.id
   );
+}
+
+/** "SUNLU plastic + cardboard · 160 g", for pickers. */
+export function kindLabel(kind: SpoolKind): string {
+  return `${kind.name} · ${kind.emptyG} g`;
 }
 
 export interface WeighIn {
@@ -61,7 +81,7 @@ export function suggestedSpoolCount(purchase: FilamentPurchase): number {
 export function spoolsForPurchase(
   purchase: FilamentPurchase,
   count: number,
-  opts: { newId: () => Id; nextLabel: () => string; date: IsoDate },
+  opts: { newId: () => Id; nextLabel: () => string; date: IsoDate; kindId?: Id },
 ): Spool[] {
   const nominalG = Math.round((purchase.totalKg * 1000) / count);
   return Array.from({ length: count }, () => ({
@@ -70,7 +90,7 @@ export function spoolsForPurchase(
     purchaseId: purchase.id,
     label: opts.nextLabel(),
     nominalG,
-    spoolType: purchase.spoolType ?? 'plastic',
+    ...(opts.kindId ? { kindId: opts.kindId } : {}),
     status: 'sealed' as const,
     movements: [{ id: opts.newId(), date: opts.date, kind: 'initial' as const, grams: nominalG, note: `Purchase ${purchase.date}` }],
   }));
@@ -168,7 +188,7 @@ export interface LabelSpoolInput {
   code: string;
   filamentId: Id;
   nominalG: number;
-  spoolType: SpoolType;
+  kindId?: Id;
   /** Unopened: booked at full nominal weight, no weighing needed. */
   sealed: boolean;
   /** Scale reading incl. spool, for opened spools (optional: stock stays unknown without it). */
@@ -189,7 +209,7 @@ export function spoolFromLabel(doc: AppDocument, input: LabelSpoolInput, newId: 
     filamentId: input.filamentId,
     label: code,
     nominalG: input.nominalG,
-    spoolType: input.spoolType,
+    ...(input.kindId ? { kindId: input.kindId } : {}),
     status: input.sealed ? 'sealed' : 'open',
     movements: [],
     ...(input.purchaseId ? { purchaseId: input.purchaseId } : {}),

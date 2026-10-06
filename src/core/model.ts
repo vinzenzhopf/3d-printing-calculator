@@ -7,7 +7,7 @@
 
 import type { QuoteResult } from './calc/quote';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type Id = string;
 /** ISO date `YYYY-MM-DD`. */
@@ -29,8 +29,8 @@ export interface AppDocument {
   quotes: Quote[];
   /** Since schema 2. */
   spools: Spool[];
-  /** Since schema 2. */
-  tarePresets: TarePreset[];
+  /** Since schema 4 (replaces the tare presets of schema 2). */
+  spoolKinds: SpoolKind[];
   /** Since schema 3. */
   printJobs: PrintJob[];
 }
@@ -187,8 +187,6 @@ export interface Filament {
   lowStockG?: number;
 }
 
-export type SpoolType = 'plastic' | 'cardboard' | 'refill';
-
 /** One physical spool (FI-5). Its stock is the sum of its movements (FI-6). */
 export interface Spool {
   id: Id;
@@ -198,8 +196,9 @@ export interface Spool {
   label: string;
   /** Net filament weight when new, grams. */
   nominalG: number;
-  spoolType: SpoolType | null;
-  /** Measured empty-spool weight of this spool; overrides presets. */
+  /** What kind of empty spool it is on (gives the empty weight). Unset = unknown. */
+  kindId?: Id;
+  /** Measured empty weight of this very spool; overrides its kind. */
   tareG?: number;
   status: 'sealed' | 'open' | 'empty' | 'discarded';
   location?: string;
@@ -224,17 +223,18 @@ export interface StockMovement {
   note?: string;
 }
 
-/** Empty-spool weight preset (FI-6a). Lookup: product line → manufacturer → any. */
-export interface TarePreset {
+/**
+ * A kind of empty spool, e.g. "SUNLU plastic + cardboard" (FI-6a). Every spool
+ * points to one; its weight turns scale readings into filament weight.
+ */
+export interface SpoolKind {
   id: Id;
-  /** null = any manufacturer. */
+  name: string;
+  /** Brand it comes with, for suggestions. null = generic. */
   manufacturer: string | null;
-  /** null = any line of the manufacturer. */
-  productLineId: Id | null;
-  spoolType: SpoolType;
   emptyG: number;
+  /** Where the weight comes from, e.g. "SpoolmanDB" or "measured 2026-10-06". */
   source: string;
-  verified: boolean;
 }
 
 export interface FilamentPurchase {
@@ -245,7 +245,8 @@ export interface FilamentPurchase {
   listingTitle?: string | null;
   asin?: string | null;
   filamentId: Id;
-  spoolType?: 'plastic' | 'cardboard' | 'refill' | null;
+  /** Empty spool its spools come on (e.g. refills with a cardboard inlay). Unset = suggested per spool. */
+  kindId?: Id;
   /** Size of the pack as sold (e.g. 4 for a 4 x 1 kg bundle split into colors); defaults to packageWeightKg. */
   packSizeKg?: number;
   packageWeightKg: number;

@@ -105,10 +105,11 @@ Quote → PrintJob (actual runs, actual time/weight, failures) → stock deducti
     when they're found on the shelf, or stock is set by a weigh-in. Unweighed spools show "unknown".
   - **Weigh-in:** pick a spool (or a filament plus "new spool"), enter the gross weight from the kitchen scale.
     The app subtracts the tare and books the difference as a correction movement. Phone-friendly.
-- **FI-6a (M)** **Empty-spool (tare) presets**, looked up from most to least specific: spool's own measured tare →
-  product line + spool type → manufacturer + spool type → global default. "Spool is empty → weigh it → save as preset"
-  turns the user's own measurements into presets. Seeded from SpoolmanDB (SUNLU plastic spool 130 g, SUNLU PETG
-  209 g; marked *unverified*).
+- **FI-6a (M)** **Empty spools**: a list of empty-spool kinds (name, brand, weight), e.g. "SUNLU plastic +
+  cardboard" or "TPU 500 g spool". Every spool points to one; a spool's own measured tare overrides it. New spools
+  suggest the kind used last for the same product line, then the same brand, then the brand's kind, then a generic
+  one. Refills are switched by hand when mounted. "Spool is empty → weigh it" updates the kind's weight. Seeded from
+  SpoolmanDB (SUNLU plastic spool 130 g) and rough generic values.
 - **FI-6b (S)** Length ↔ weight conversion via density and diameter (slicer meters, printer counters).
 - **FI-7 (S)** Low-stock threshold per filament with a "to buy" list (including the last shop link and price).
 - **FI-8 (S)** Price history per filament/product line (chart) and average/last/min price.
@@ -327,7 +328,7 @@ All values are editable. The reserve share can be any %, e.g. a "Friends & famil
 4. Quotes with plates (per-plate printer, multi-filament + purge), extras, pricing profiles, breakdown, freeze,
    print view (QC-1/2/4/5/6, PP-1/2, QO-1)
 5. Customers (JR-3)
-6. Spools, stock ledger starting at 0, weigh-in with tare presets (FI-5/6/6a)
+6. Spools, stock ledger starting at 0, weigh-in with empty-spool kinds (FI-5/6/6a)
 7. Legacy regression tests (NF-3)
 
 Then: GitHub sync (ST-6), print log with stock deduction (JR-2), low stock (FI-7), part planner (QC-3), slicer import (QC-8).
@@ -346,7 +347,7 @@ Decided (2026-10-01):
 - *Browser:* Firefox first → IndexedDB + export/import, then private GitHub repo sync. File System Access is not used.
 - *Data cleanup:* all flagged purchases resolved (see excel-analysis.md). SUNLU now has 5 lines: PLA, PLA+,
   PLA+ 2.0, PLA Meta, HS-PLA.
-- *Stock:* starts at 0/unknown, corrected by weigh-ins with tare presets (FI-6/6a).
+- *Stock:* starts at 0/unknown, corrected by weigh-ins with empty-spool kinds (FI-6/6a).
 - *Machine cost:* MK3S+ is paid off (wear parts only, ≈ 0.03 €/h). CORE One + INDX is budgeted at 2,000 € (tool count
   open) and pre-financed through a replacement reserve (MC-8).
 

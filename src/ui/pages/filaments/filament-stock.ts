@@ -1,14 +1,14 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { AppDocument, Spool, SpoolType } from '../../../core/model';
-import { labelGenerator, remainingG, spoolKeyFromScan, spoolsForPurchase, stockByFilament, suggestedSpoolCount } from '../../../core/stock';
+import type { AppDocument, Spool } from '../../../core/model';
+import { labelGenerator, remainingG, spoolKeyFromScan, spoolsForPurchase, stockByFilament, suggestKind, suggestedSpoolCount } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { pickFilament } from '../../filament-picker';
 import { scanAndOpen } from '../../qr-scanner';
 import { cellNumber, cellSelect } from '../../fields';
 import { newId, num, today } from '../../format';
-import { SPOOL_TYPES, filamentLabel, spoolHref } from './labels';
+import { filamentLabel, kindOptions, spoolHref } from './labels';
 
 type Filter = 'in-use' | 'open' | 'sealed' | 'empty' | 'all';
 type Sort = 'left' | 'filament' | 'label';
@@ -32,7 +32,7 @@ export class FilamentStock extends LitElement {
   @state() private show: Filter = 'in-use';
   @state() private sort: Sort = 'left';
   @state() private addMode: 'purchase' | 'shelf' | null = null;
-  @state() private shelf = { filamentId: '', spoolType: 'plastic' as SpoolType, nominalG: 1000 };
+  @state() private shelf = { filamentId: '', kindId: '', nominalG: 1000 };
   @state() private fromPurchase = { purchaseId: '', count: 1 };
 
   protected override createRenderRoot() {
@@ -168,7 +168,7 @@ export class FilamentStock extends LitElement {
       <div class="col-4 col-md-2"><label class="small d-block">Spools${cellNumber(this.fromPurchase.count, (v) => (this.fromPurchase = { ...this.fromPurchase, count: Math.max(1, v ?? 1) }), { min: 1, step: 1, title: 'Spools' })}</label></div>
       <div class="col-8 col-md-3"><button class="btn btn-sm btn-primary w-100" ?disabled=${!selected} @click=${async () => {
         if (!selected) return;
-        const spools = spoolsForPurchase(selected, this.fromPurchase.count, { newId, nextLabel: labelGenerator(this.#doc), date: today() });
+        const spools = spoolsForPurchase(selected, this.fromPurchase.count, { newId, nextLabel: labelGenerator(this.#doc), date: today(), kindId: suggestKind(this.#doc, selected.filamentId, selected.id) });
         await this.#store.store.update((d) => d.spools.push(...spools));
         this.addMode = null;
         this.fromPurchase = { purchaseId: '', count: 1 };
@@ -178,13 +178,13 @@ export class FilamentStock extends LitElement {
 
   #addFromShelf() {
     return html`<div class="row g-2 align-items-end">
-      <div class="col-md-6"><div class="small">Filament</div>${pickFilament(this.shelf.filamentId, (v) => (this.shelf = { ...this.shelf, filamentId: v }))}</div>
-      <div class="col-6 col-md-2"><label class="small d-block">Spool${cellSelect(this.shelf.spoolType, SPOOL_TYPES, (v) => (this.shelf = { ...this.shelf, spoolType: v as SpoolType }), true, 'Spool type')}</label></div>
+      <div class="col-md-6"><div class="small">Filament</div>${pickFilament(this.shelf.filamentId, (v) => (this.shelf = { ...this.shelf, filamentId: v, kindId: suggestKind(this.#doc, v) ?? '' }))}</div>
+      <div class="col-6 col-md-2"><label class="small d-block">Empty spool${cellSelect(this.shelf.kindId, kindOptions(this.#doc), (v) => (this.shelf = { ...this.shelf, kindId: v }), true, 'Empty spool')}</label></div>
       <div class="col-6 col-md-2"><label class="small d-block">Size (g)${cellNumber(this.shelf.nominalG, (v) => (this.shelf = { ...this.shelf, nominalG: v ?? 1000 }), { min: 0, step: 50, title: 'Nominal grams' })}</label></div>
       <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" ?disabled=${!this.shelf.filamentId} @click=${async () => {
         const id = newId();
         const label = labelGenerator(this.#doc)();
-        await this.#store.store.update((d) => d.spools.push({ id, filamentId: this.shelf.filamentId, label, nominalG: this.shelf.nominalG, spoolType: this.shelf.spoolType, status: 'open', movements: [] }));
+        await this.#store.store.update((d) => d.spools.push({ id, filamentId: this.shelf.filamentId, label, nominalG: this.shelf.nominalG, ...(this.shelf.kindId ? { kindId: this.shelf.kindId } : {}), status: 'open', movements: [] }));
         this.addMode = null;
         location.hash = `#/spool/${encodeURIComponent(label)}`; // weigh it right away
       }}>Add &amp; weigh</button></div>
