@@ -36,7 +36,7 @@ export class DashboardPage extends LitElement {
       ['Prints logged', String(doc.printJobs.length), '#/log'],
       ['Filament in stock', `${num(stockKg, 1)} kg`, '#/filaments/stock'],
       ['Filaments', String(doc.filaments.length), '#/filaments'],
-      ['Printers', String(doc.printers.filter((p) => p.status === 'active').length), '#/printers'],
+      ['Printers', String(doc.printers.filter((p) => p.status === 'active').length), '#/settings/printers'],
       ['Customers', String(doc.customers.length), '#/customers'],
     ];
     return html`
@@ -63,7 +63,7 @@ export class DashboardPage extends LitElement {
     if (m.service && !m.locked) return nothing; // synced data has its own history
     const hasData = doc.quotes.length + doc.filaments.length + doc.printers.length > 0;
     if (!hasData) {
-      return html`<div class="alert alert-info">Welcome! Start in <a href="#/printers">Printers</a> and <a href="#/filaments">Filaments</a>, or import data in <a href="#/settings/data">Settings</a>.</div>`;
+      return html`<div class="alert alert-info">Welcome! Start in <a href="#/settings/printers">Settings → Printers</a> and <a href="#/filaments">Filaments</a>, or import data in <a href="#/settings/data">Settings</a>.</div>`;
     }
     const last = lastBackup();
     const days = last ? Math.floor((Date.now() - last.getTime()) / 86_400_000) : null;

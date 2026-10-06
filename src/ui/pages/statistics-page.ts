@@ -129,7 +129,7 @@ export class StatisticsPage extends LitElement {
         <h2 class="h6">Printer counters</h2>
         <p class="small text-body-secondary">
           What the printers themselves counted (OctoPrint, printer display), next to the print log for the same period.
-          Edit them under Printers → usage statistics.
+          Edit them under Settings → Printers → usage statistics.
         </p>
         <div class="table-responsive"><table class="table table-sm align-middle mb-0">
           <thead><tr><th>Printer</th><th>Period</th><th>Source</th><th class="text-end">Prints</th><th class="text-end">Hours</th><th class="text-end">In print log</th></tr></thead>

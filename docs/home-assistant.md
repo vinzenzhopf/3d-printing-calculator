@@ -66,7 +66,7 @@ The file should appear in `print-inbox/` and in the app under *Detected prints* 
 ## 4. Automation (UI)
 
 **Settings → Automations → Create automation → ⋮ → Edit in YAML**, paste, save. Adjust `printer: mk3s` to the
-*Inbox key* of the printer in the app (Printers → Edit), and the entity IDs if yours differ.
+*Inbox key* of the printer in the app (Settings → Printers → Edit), and the entity IDs if yours differ.
 
 ```yaml
 alias: 3D printer – print inbox

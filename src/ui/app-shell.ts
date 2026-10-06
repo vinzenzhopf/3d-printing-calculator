@@ -108,8 +108,6 @@ export class AppShell extends LitElement {
         return html`<dashboard-page></dashboard-page>`;
       case 'settings':
         return html`<settings-page .sub=${this.#router.sub}></settings-page>`;
-      case 'printers':
-        return html`<printers-page></printers-page>`;
       case 'quotes':
         return html`<quotes-page .sub=${this.#router.sub}></quotes-page>`;
       case 'spool':

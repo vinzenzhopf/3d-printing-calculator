@@ -60,7 +60,7 @@ export class PrintersPage extends LitElement {
     const printers = [...this.#doc.printers].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
     return html`
       <div class="d-flex align-items-center mb-3">
-        <h1 class="h3 mb-0 me-auto">Printers</h1>
+        <p class="small text-body-secondary mb-0 me-auto">Printers with their machine costs, power use per material profile, usage statistics and maintenance.</p>
         <button class="btn btn-primary" @click=${this.#addPrinter}>Add printer</button>
       </div>
       ${printers.length === 0 ? html`<p class="text-body-secondary">No printers yet.</p>` : nothing}

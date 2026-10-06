@@ -12,11 +12,13 @@ import { store } from '../../state/store-instance';
 import { numberField, switchField, textAreaField, textField } from '../fields';
 import '../pricing-profiles-editor';
 import '../sync-settings';
+import './printers-page';
 import { ask, tell } from '../dialogs';
 
 const TABS = [
   { sub: '', label: 'General' },
   { sub: 'pricing', label: 'Pricing profiles' },
+  { sub: 'printers', label: 'Printers' },
   { sub: 'data', label: 'Data & sync' },
   { sub: 'maintenance', label: 'Maintenance' },
 ];
@@ -46,6 +48,8 @@ export class SettingsPage extends LitElement {
       </ul>
       ${tab === 'pricing'
         ? html`<pricing-profiles-editor></pricing-profiles-editor>`
+        : tab === 'printers'
+          ? html`<printers-page></printers-page>`
         : tab === 'maintenance'
           ? html`<div class="row g-3">
               <div class="col-lg-6">${this.#stockReset()}</div>
