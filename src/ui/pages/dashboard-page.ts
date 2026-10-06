@@ -63,13 +63,13 @@ export class DashboardPage extends LitElement {
     if (m.service && !m.locked) return nothing; // synced data has its own history
     const hasData = doc.quotes.length + doc.filaments.length + doc.printers.length > 0;
     if (!hasData) {
-      return html`<div class="alert alert-info">Welcome! Start in <a href="#/printers">Printers</a> and <a href="#/filaments">Filaments</a>, or import data in <a href="#/settings">Settings</a>.</div>`;
+      return html`<div class="alert alert-info">Welcome! Start in <a href="#/printers">Printers</a> and <a href="#/filaments">Filaments</a>, or import data in <a href="#/settings/data">Settings</a>.</div>`;
     }
     const last = lastBackup();
     const days = last ? Math.floor((Date.now() - last.getTime()) / 86_400_000) : null;
     if (days !== null && days < BACKUP_WARN_DAYS) return nothing;
     return html`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2">
-      <span>${days === null ? 'Your data has never been exported.' : `Last backup ${days} days ago.`} It only lives in this browser. Export it, or set up <a href="#/settings">sync</a>.</span>
+      <span>${days === null ? 'Your data has never been exported.' : `Last backup ${days} days ago.`} It only lives in this browser. Export it, or set up <a href="#/settings/data">sync</a>.</span>
       <button class="btn btn-sm btn-warning ms-auto" @click=${() => { downloadBackup(doc); this.requestUpdate(); }}>Export now</button>
     </div>`;
   }

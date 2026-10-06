@@ -94,7 +94,7 @@ export class AppShell extends LitElement {
       : s.hasLocalChanges ? ['secondary', 'unsynced']
       : ['success', 'synced'];
     const canSync = !!s && !m.locked && s.status !== 'syncing' && s.status !== 'conflict';
-    return html`<a class="badge text-bg-${color} text-decoration-none" href="#/settings" title=${s?.error ?? 'Sync settings'}>☁ ${text}</a>
+    return html`<a class="badge text-bg-${color} text-decoration-none" href="#/settings/data" title=${s?.error ?? 'Sync settings'}>☁ ${text}</a>
       ${s && !m.locked
         ? html`<button class="badge text-bg-light border-0" style="cursor: pointer" title="Sync now" aria-label="Sync now"
             ?disabled=${!canSync} @click=${() => void s.sync()}>${s.status === 'syncing' ? '…' : '⟳'}</button>`
@@ -106,7 +106,7 @@ export class AppShell extends LitElement {
       case 'dashboard':
         return html`<dashboard-page></dashboard-page>`;
       case 'settings':
-        return html`<settings-page></settings-page>`;
+        return html`<settings-page .sub=${this.#router.sub}></settings-page>`;
       case 'printers':
         return html`<printers-page></printers-page>`;
       case 'quotes':

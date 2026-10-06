@@ -24,7 +24,6 @@ export class PricingProfilesEditor extends LitElement {
 
   override render() {
     return html`
-      <h2 class="h5 mt-4">Pricing profiles</h2>
       <p class="text-body-secondary small">
         Each quote uses one profile. It decides which costs are charged and how the price is built: cost → failure
         allowance → markup → discount → minimum price → rounding.

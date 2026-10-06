@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { createEmptyDocument } from '../../core/document';
 import { DocumentError, type LoadedDocument } from '../../core/migrations';
 import type { Settings } from '../../core/model';
@@ -10,10 +10,18 @@ import { store } from '../../state/store-instance';
 import { numberField, switchField, textAreaField, textField } from '../fields';
 import '../pricing-profiles-editor';
 import '../sync-settings';
+import { ask } from '../dialogs';
+
+const TABS = [
+  { sub: '', label: 'General' },
+  { sub: 'pricing', label: 'Pricing profiles' },
+  { sub: 'data', label: 'Data & sync' },
+];
 
 @customElement('settings-page')
 export class SettingsPage extends LitElement {
   #store = new StoreController(this, store());
+  @property() sub = '';
 
   /** Parsed import file waiting for confirmation. */
   @state() private pendingImport: { fileName: string; loaded: LoadedDocument } | null = null;
@@ -25,17 +33,25 @@ export class SettingsPage extends LitElement {
 
   override render() {
     const s = this.#store.store.doc.settings;
+    const tab = TABS.some((t) => t.sub === this.sub) ? this.sub : '';
     return html`
       <h1 class="h3 mb-3">Settings</h1>
-      <div class="row g-3">
-        <div class="col-lg-6">${this.#general(s)}</div>
-        <div class="col-lg-6">${this.#business(s)} ${this.#vat(s)}</div>
-      </div>
-      <pricing-profiles-editor></pricing-profiles-editor>
-      <div class="row g-3 mt-2">
-        <div class="col-lg-6">${this.#data()}</div>
-        <div class="col-lg-6"><sync-settings></sync-settings></div>
-      </div>
+      <ul class="nav nav-tabs mb-3">
+        ${TABS.map((t) => html`<li class="nav-item">
+          <a class="nav-link ${t.sub === tab ? 'active' : ''}" href="#/settings${t.sub ? `/${t.sub}` : ''}">${t.label}</a>
+        </li>`)}
+      </ul>
+      ${tab === 'pricing'
+        ? html`<pricing-profiles-editor></pricing-profiles-editor>`
+        : tab === 'data'
+          ? html`<div class="row g-3">
+              <div class="col-lg-6"><sync-settings></sync-settings></div>
+              <div class="col-lg-6">${this.#data()}</div>
+            </div>`
+          : html`<div class="row g-3">
+              <div class="col-lg-6">${this.#general(s)}</div>
+              <div class="col-lg-6">${this.#business(s)} ${this.#vat(s)}</div>
+            </div>`}
     `;
   }
 
@@ -184,7 +200,7 @@ export class SettingsPage extends LitElement {
   };
 
   #reset = async () => {
-    if (!confirm('Delete all data in this browser? This cannot be undone. Export first if you want to keep it.')) return;
+    if (!(await ask('Delete all data in this browser? This cannot be undone. Export first if you want to keep it.', { ok: 'Delete all data', danger: true }))) return;
     await this.#store.store.replaceDocument(createEmptyDocument());
   };
 }
