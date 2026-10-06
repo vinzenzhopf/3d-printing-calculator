@@ -10,6 +10,7 @@ export const ROUTES: Route[] = [
   { path: 'dashboard', label: 'Dashboard' },
   { path: 'quotes', label: 'Quotes' },
   { path: 'log', label: 'Print log' },
+  { path: 'stats', label: 'Statistics' },
   { path: 'filaments', label: 'Filaments' },
   { path: 'printers', label: 'Printers' },
   { path: 'customers', label: 'Customers' },

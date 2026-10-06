@@ -12,6 +12,7 @@ import './pages/quotes-page';
 import './pages/customers-page';
 import './pages/print-log-page';
 import './pages/spool-page';
+import './pages/statistics-page';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -115,6 +116,8 @@ export class AppShell extends LitElement {
         return html`<spool-page .key=${this.#router.sub}></spool-page>`;
       case 'log':
         return html`<print-log-page></print-log-page>`;
+      case 'stats':
+        return html`<statistics-page></statistics-page>`;
       case 'customers':
         return html`<customers-page></customers-page>`;
       case 'filaments':
