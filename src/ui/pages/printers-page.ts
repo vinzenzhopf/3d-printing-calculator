@@ -172,6 +172,7 @@ export class PrintersPage extends LitElement {
         <div class="col-md-4">
           ${numberField('First power phase', p.firstHourPhaseMin ?? 60, (v) => set((x) => (x.firstHourPhaseMin = v)), { suffix: 'min', min: 0, help: 'Higher power while the chamber/bed settles.' })}
           ${numberField('Print hours per year (override)', p.hoursPerYearOverride ?? 0, (v) => set((x) => (x.hoursPerYearOverride = v > 0 ? v : undefined)), { min: 0, help: '0 = derive from hour counters below.' })}
+          ${textField('Inbox key', p.inboxKey ?? '', (v) => set((x) => (x.inboxKey = v || undefined)), { help: 'Printer name in detected prints, e.g. "mk3s" from Home Assistant.' })}
           ${numberField('Purchase price', p.purchasePrice ?? 0, (v) => set((x) => (x.purchasePrice = v || undefined)), { suffix: this.#doc.settings.currency, min: 0 })}
         </div>
       </div>

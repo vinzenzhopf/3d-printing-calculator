@@ -18,7 +18,21 @@ export function fakeGitHub(opts: { token?: string; private?: boolean } = {}) {
 
     const path = decodeURIComponent(m[3]);
     const file = files.get(path);
-    if ((init.method ?? 'GET') === 'GET') {
+    const method = init.method ?? 'GET';
+    if (method === 'GET' && !file) {
+      // Directory listing
+      const children = [...files.entries()].filter(([p]) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes('/'));
+      if (children.length === 0) return json(404, { message: 'Not Found' });
+      return json(200, children.map(([p, f]) => ({ type: 'file', name: p.split('/').pop(), path: p, sha: f.sha })));
+    }
+    if (method === 'DELETE') {
+      const body = JSON.parse(String(init.body)) as { sha?: string };
+      if (!file) return json(404, { message: 'Not Found' });
+      if (body.sha !== file.sha) return json(409, { message: 'does not match' });
+      files.delete(path);
+      return json(200, { commit: {} });
+    }
+    if (method === 'GET') {
       if (!file) return json(404, { message: 'Not Found' });
       if (headers.get('Accept') === 'application/vnd.github.raw+json') return new Response(atob(file.content), { status: 200 });
       return json(200, { sha: file.sha, content: file.content, encoding: 'base64' });

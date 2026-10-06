@@ -90,6 +90,32 @@ export class GitHubAdapter implements StorageAdapter {
     throw await githubError(res);
   }
 
+  /** Files directly inside a folder of the repo (empty when the folder doesn't exist). */
+  async listFiles(dir: string): Promise<{ path: string; sha: string }[]> {
+    const res = await this.fetchFn(`${this.#contentsUrl(dir)}${this.#ref}`, { headers: this.#headers(), cache: 'no-store' });
+    if (res.status === 404) return [];
+    if (!res.ok) throw await githubError(res);
+    const items = (await res.json()) as { type: string; path: string; sha: string }[];
+    return Array.isArray(items) ? items.filter((i) => i.type === 'file').map(({ path, sha }) => ({ path, sha })) : [];
+  }
+
+  async readJson(path: string): Promise<unknown> {
+    const res = await this.fetchFn(`${this.#contentsUrl(path)}${this.#ref}`, { headers: this.#headers(), cache: 'no-store' });
+    if (!res.ok) throw await githubError(res);
+    const meta = (await res.json()) as { content?: string };
+    return JSON.parse(decodeBase64Utf8(meta.content ?? ''));
+  }
+
+  async deleteFile(path: string, sha: string, message: string): Promise<void> {
+    const body = { message, sha, ...(this.cfg.branch ? { branch: this.cfg.branch } : {}) };
+    const res = await this.fetchFn(this.#contentsUrl(path), { method: 'DELETE', headers: this.#headers(), body: JSON.stringify(body) });
+    if (!res.ok && res.status !== 404) throw await githubError(res);
+  }
+
+  #contentsUrl(path: string): string {
+    return `${this.#repoUrl}/contents/${path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
+  }
+
   /** Checks token and repo access before connecting. */
   async check(): Promise<{ private: boolean; canWrite: boolean; fileExists: boolean }> {
     const res = await this.fetchFn(this.#repoUrl, { headers: this.#headers(), cache: 'no-store' });

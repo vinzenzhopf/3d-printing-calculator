@@ -1,3 +1,4 @@
+import { parseInboxEntry, type InboxEntry } from '../core/inbox';
 import { GitHubAdapter, type GitHubConfig } from '../storage/github-adapter';
 import type { AppStore } from './app-store';
 import { SyncService, type SyncBase } from './sync';
@@ -15,6 +16,15 @@ const CONFIG_KEY = '3dpc.sync.config';
 const TOKEN_KEY = '3dpc.sync.token';
 const BASE_KEY = '3dpc.sync.base';
 const AUTO_SYNC_DELAY_MS = 30_000;
+/** Folder in the sync repo where Home Assistant drops detected prints (see docs/home-assistant.md). */
+export const INBOX_DIR = 'print-inbox';
+
+export interface InboxItem {
+  path: string;
+  sha: string;
+  /** null when the file could not be read as an inbox entry. */
+  entry: InboxEntry | null;
+}
 
 /** Storage access that never throws (private windows, blocked site data). */
 const safe = {
@@ -45,6 +55,7 @@ function identity(c: SyncConfig): string {
 export class SyncManager extends EventTarget {
   config: SyncConfig | null = null;
   service: SyncService | null = null;
+  #github: GitHubAdapter | null = null;
   #timer: ReturnType<typeof setTimeout> | undefined;
   #lastSeenUpdatedAt = '';
   #cleanup: (() => void)[] = [];
@@ -115,7 +126,8 @@ export class SyncManager extends EventTarget {
       },
       set: (b: SyncBase | null) => safe.set(local, BASE_KEY, b ? JSON.stringify({ ...b, identity: identity(config) }) : null),
     };
-    const service = new SyncService(this.store, new GitHubAdapter({ ...config.github, token }), base);
+    this.#github = new GitHubAdapter({ ...config.github, token });
+    const service = new SyncService(this.store, this.#github, base);
     this.service = service;
 
     const forward = () => this.#emit();
@@ -153,6 +165,32 @@ export class SyncManager extends EventTarget {
   #stop(): void {
     for (const fn of this.#cleanup.splice(0)) fn();
     this.service = null;
+    this.#github = null;
+  }
+
+  /** Prints detected outside the app, waiting in the sync repo. Empty without GitHub sync. */
+  async loadInbox(): Promise<InboxItem[]> {
+    const gh = this.#github;
+    if (!gh) return [];
+    const files = (await gh.listFiles(INBOX_DIR)).filter((f) => f.path.endsWith('.json'));
+    return Promise.all(
+      files.map(async (f) => {
+        try {
+          return { ...f, entry: parseInboxEntry(f.path, await gh.readJson(f.path)) };
+        } catch {
+          return { ...f, entry: null };
+        }
+      }),
+    );
+  }
+
+  /** Removes a processed (logged or dismissed) inbox file. */
+  async removeInboxItem(item: InboxItem, reason: string): Promise<void> {
+    await this.#github?.deleteFile(item.path, item.sha, reason);
+  }
+
+  get inboxAvailable(): boolean {
+    return !!this.#github;
   }
 
   #emit(): void {

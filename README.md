@@ -31,7 +31,7 @@ use (installable as an app). See the [milestones](docs/implementation-plan.md#8-
 - Machine cost per hour, including a reserve for your next printer; maintenance reminders by print hours
 - Filament price history per product line
 - Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets, low-stock list
-- Print log: deducts filament from spools, tracks printer hours and your real failure rate
+- Print log: deducts filament from spools, tracks printer hours and your real failure rate; prints can be detected automatically via [Home Assistant](docs/home-assistant.md) (OctoPrint)
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
 - Works offline and can be installed as an app
 
@@ -72,6 +72,7 @@ Every push to `main` is tested and deployed to GitHub Pages by
 - [Requirements](docs/requirements.md)
 - [Implementation plan](docs/implementation-plan.md)
 - [Analysis of the original Excel model](docs/excel-analysis.md)
+- [Detect prints with Home Assistant](docs/home-assistant.md)
 
 ## License
 

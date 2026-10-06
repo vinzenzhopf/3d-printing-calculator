@@ -72,3 +72,22 @@ describe('GitHubAdapter specifics', () => {
     expect((await adapter.check()).fileExists).toBe(true);
   });
 });
+
+describe('GitHubAdapter files (print inbox)', () => {
+  it('lists, reads and deletes files in a folder', async () => {
+    const gh = fakeGitHub();
+    const adapter = new GitHubAdapter({ owner: 'me', repo: 'data', branch: '', path: 'data.json', token: 'good-token' }, gh.fetchFn);
+    expect(await adapter.listFiles('print-inbox')).toEqual([]);
+    gh.files.set('print-inbox/a.json', { content: encodeBase64Utf8('{"version":1,"file":"Würfel.gcode"}'), sha: 'x1' });
+    gh.files.set('print-inbox/b.json', { content: encodeBase64Utf8('{}'), sha: 'x2' });
+    gh.files.set('other.json', { content: encodeBase64Utf8('{}'), sha: 'x3' });
+
+    const files = await adapter.listFiles('print-inbox');
+    expect(files).toEqual([{ path: 'print-inbox/a.json', sha: 'x1' }, { path: 'print-inbox/b.json', sha: 'x2' }]);
+    expect(await adapter.readJson('print-inbox/a.json')).toEqual({ version: 1, file: 'Würfel.gcode' });
+
+    await adapter.deleteFile('print-inbox/a.json', 'x1', 'Processed');
+    expect([...gh.files.keys()]).toEqual(['print-inbox/b.json', 'other.json']);
+    await expect(adapter.deleteFile('print-inbox/b.json', 'wrong', 'x')).rejects.toThrow();
+  });
+});

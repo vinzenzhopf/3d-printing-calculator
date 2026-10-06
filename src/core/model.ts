@@ -104,6 +104,8 @@ export interface Printer {
   purchasePrice?: number;
   /** Overrides the print hours per year derived from usage snapshots. */
   hoursPerYearOverride?: number;
+  /** Name used by external print detection (e.g. "mk3s" from Home Assistant) for this printer. */
+  inboxKey?: string;
   toolheads: number | null;
   toolType: 'single' | 'mmu' | 'toolchanger' | null;
   /** Waste per print run (priming line, skirt), grams. */
