@@ -31,6 +31,8 @@ export class SyncService extends EventTarget {
   status: SyncStatus = 'idle';
   error: string | null = null;
   lastSyncAt: Date | null = null;
+  /** When changes from elsewhere were taken over automatically (not by resolving a conflict). */
+  lastPulledAt: Date | null = null;
   conflict: SyncConflict | null = null;
   #running: Promise<void> | null = null;
 
@@ -79,6 +81,8 @@ export class SyncService extends EventTarget {
         this.#done({ remoteVersion: remote.version, docUpdatedAt: local.updatedAt });
       } else if (remoteChanged) {
         await this.#pull(remote, remoteDoc);
+        this.lastPulledAt = new Date();
+        this.dispatchEvent(new Event('change'));
       } else if (localChanged) {
         await this.#push(local, remote.version);
       } else {

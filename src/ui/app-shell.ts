@@ -3,6 +3,7 @@ import { customElement } from 'lit/decorators.js';
 import { StoreController } from '../state/app-store';
 import { store, syncManager } from '../state/store-instance';
 import { HashRouter, ROUTES } from './router';
+import { syncConflict } from './sync-conflict';
 import './pages/dashboard-page';
 import './pages/settings-page';
 import './pages/printers-page';
@@ -16,7 +17,23 @@ import './pages/spool-page';
 export class AppShell extends LitElement {
   #router = new HashRouter(this);
   #store = new StoreController(this, store());
-  #onSync = () => this.requestUpdate();
+  #onSync = () => {
+    // Notice when another device's changes were taken over automatically.
+    const pulled = syncManager().service?.lastPulledAt;
+    if (pulled && pulled !== this.#shownPull) {
+      this.#shownPull = pulled;
+      this.#pullNotice = true;
+      clearTimeout(this.#noticeTimer);
+      this.#noticeTimer = setTimeout(() => {
+        this.#pullNotice = false;
+        this.requestUpdate();
+      }, 6000);
+    }
+    this.requestUpdate();
+  };
+  #shownPull: Date | null = null;
+  #pullNotice = false;
+  #noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -52,7 +69,16 @@ export class AppShell extends LitElement {
           </ul>
         </div>
       </nav>
-      <main class="container pb-5">${this.#page()}</main>
+      <main class="container pb-5">
+        ${syncConflict()}
+        ${this.#pullNotice
+          ? html`<div class="alert alert-info alert-dismissible py-2 mb-3 d-print-none" role="status">
+              Updated with changes from another device.
+              <button type="button" class="btn-close py-2" aria-label="Close" @click=${() => { this.#pullNotice = false; this.requestUpdate(); }}></button>
+            </div>`
+          : nothing}
+        ${this.#page()}
+      </main>
     `;
   }
 
@@ -67,7 +93,12 @@ export class AppShell extends LitElement {
       : s.status === 'syncing' ? ['info', 'syncing…']
       : s.hasLocalChanges ? ['secondary', 'unsynced']
       : ['success', 'synced'];
-    return html`<a class="badge text-bg-${color} text-decoration-none" href="#/settings" title=${s?.error ?? 'Sync settings'}>☁ ${text}</a>`;
+    const canSync = !!s && !m.locked && s.status !== 'syncing' && s.status !== 'conflict';
+    return html`<a class="badge text-bg-${color} text-decoration-none" href="#/settings" title=${s?.error ?? 'Sync settings'}>☁ ${text}</a>
+      ${s && !m.locked
+        ? html`<button class="badge text-bg-light border-0" style="cursor: pointer" title="Sync now" aria-label="Sync now"
+            ?disabled=${!canSync} @click=${() => void s.sync()}>${s.status === 'syncing' ? '…' : '⟳'}</button>`
+        : nothing}`;
   }
 
   #page() {

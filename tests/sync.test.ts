@@ -42,6 +42,18 @@ describe('SyncService', () => {
     expect(a.sync.hasLocalChanges).toBe(false);
   });
 
+  it('records automatic pulls (for the "updated from another device" notice), not conflict resolutions', async () => {
+    const { a, b } = await setup();
+    await a.sync.sync();
+    await b.sync.sync(); // same content, no pull needed
+    expect(b.sync.lastPulledAt).toBeNull();
+    await a.store.update((d) => (d.settings.hourlyRate = 33));
+    await a.sync.sync();
+    await b.sync.sync();
+    expect(b.store.doc.settings.hourlyRate).toBe(33);
+    expect(b.sync.lastPulledAt).toBeInstanceOf(Date);
+  });
+
   it('pulls without marking the pulled copy as a local change', async () => {
     const { a, b } = await setup();
     await a.store.update((d) => d.customers.push({ id: 'c', name: 'Alex' }));

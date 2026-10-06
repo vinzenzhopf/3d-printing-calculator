@@ -1,7 +1,5 @@
 import { LitElement, html, nothing, type ReactiveController } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { summarize, type DocumentSummary } from '../core/transfer';
-import { downloadBackup } from './backup';
 import { store, syncManager } from '../state/store-instance';
 import type { SyncConfig } from '../state/sync-manager';
 import { switchField, textField } from './fields';
@@ -119,37 +117,12 @@ export class SyncSettings extends LitElement {
                 ${s.hasLocalChanges && s.status !== 'syncing' ? html` · <span class="text-warning">unsynced changes</span>` : nothing}
               </p>
               ${s.error ? html`<div class="alert alert-danger">${s.error}</div>` : nothing}
-              ${s.conflict ? this.#conflict(summarize(store().doc), summarize(s.conflict.remoteDoc)) : nothing}
+              ${s.conflict ? html`<p class="small text-body-secondary">A sync conflict is waiting for your decision at the top of the page.</p>` : nothing}
             `
           : nothing}
       <div class="d-flex gap-2">
         ${s ? html`<button class="btn btn-primary" ?disabled=${s.status === 'syncing' || s.status === 'conflict'} @click=${() => void s.sync()}>Sync now</button>` : nothing}
         <button class="btn btn-outline-danger ms-auto" @click=${() => { if (confirm('Disconnect sync on this device? Data stays in this browser and in the repository.')) m.disconnect(); }}>Disconnect</button>
-      </div>
-    `;
-  }
-
-  #conflict(local: DocumentSummary, remote: DocumentSummary) {
-    const s = syncManager().service!;
-    const rows: [string, keyof DocumentSummary][] = [
-      ['Quotes', 'quotes'], ['Filaments', 'filaments'], ['Purchases', 'purchases'], ['Printers', 'printers'], ['Customers', 'customers'],
-    ];
-    return html`
-      <div class="alert alert-warning">
-        <strong>Both this device and the repository changed since the last sync.</strong> Choose which version to keep;
-        the other one is replaced. (Older versions stay available in the repository's commit history.)
-        <table class="table table-sm w-auto my-2">
-          <thead><tr><th></th><th class="text-end">This device</th><th class="text-end">Repository</th></tr></thead>
-          <tbody>
-            ${rows.map(([l, k]) => html`<tr><td>${l}</td><td class="text-end">${local[k]}</td><td class="text-end">${remote[k]}</td></tr>`)}
-            <tr><td>Last change</td><td class="text-end">${new Date(local.updatedAt).toLocaleString()}</td><td class="text-end">${new Date(remote.updatedAt).toLocaleString()}</td></tr>
-          </tbody>
-        </table>
-        <div class="d-flex flex-wrap gap-2">
-          <button class="btn btn-sm btn-outline-secondary" @click=${this.#exportLocal}>Export this device's data first</button>
-          <button class="btn btn-sm btn-warning" @click=${() => void s.resolve('mine')}>Keep this device (overwrite repository)</button>
-          <button class="btn btn-sm btn-warning" @click=${() => void s.resolve('theirs')}>Use repository (replace this device)</button>
-        </div>
       </div>
     `;
   }
@@ -167,6 +140,4 @@ export class SyncSettings extends LitElement {
       this.busy = false;
     }
   };
-
-  #exportLocal = () => downloadBackup(store().doc);
 }
