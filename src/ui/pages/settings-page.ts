@@ -3,6 +3,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { createEmptyDocument } from '../../core/document';
 import { DocumentError, type LoadedDocument } from '../../core/migrations';
 import type { Settings } from '../../core/model';
+import { clearStock, isLabelCode, nextLabelNumber } from '../../core/stock';
+import { labelCode } from '../../core/labels';
 import { parseDocument, summarize, type DocumentSummary } from '../../core/transfer';
 import { downloadBackup } from '../backup';
 import { StoreController } from '../../state/app-store';
@@ -10,12 +12,13 @@ import { store } from '../../state/store-instance';
 import { numberField, switchField, textAreaField, textField } from '../fields';
 import '../pricing-profiles-editor';
 import '../sync-settings';
-import { ask } from '../dialogs';
+import { ask, tell } from '../dialogs';
 
 const TABS = [
   { sub: '', label: 'General' },
   { sub: 'pricing', label: 'Pricing profiles' },
   { sub: 'data', label: 'Data & sync' },
+  { sub: 'maintenance', label: 'Maintenance' },
 ];
 
 @customElement('settings-page')
@@ -43,6 +46,11 @@ export class SettingsPage extends LitElement {
       </ul>
       ${tab === 'pricing'
         ? html`<pricing-profiles-editor></pricing-profiles-editor>`
+        : tab === 'maintenance'
+          ? html`<div class="row g-3">
+              <div class="col-lg-6">${this.#stockReset()}</div>
+              <div class="col-lg-6">${this.#labelCounter()}</div>
+            </div>`
         : tab === 'data'
           ? html`<div class="row g-3">
               <div class="col-lg-6"><sync-settings></sync-settings></div>
@@ -119,6 +127,55 @@ export class SettingsPage extends LitElement {
               placeholder: 'e.g. a small-business notice required in your country',
             })}
         <p class="form-text mb-0">Configuration only, not tax advice.</p>
+      </section>
+    `;
+  }
+
+  #stockReset() {
+    const doc = this.#store.store.doc;
+    const spools = doc.spools.length;
+    const entries = doc.spools.reduce((sum, s) => sum + s.movements.length, 0);
+    const linkedJobs = doc.printJobs.filter((j) => j.filaments.some((f) => f.spoolId)).length;
+    return html`
+      <section class="card card-body">
+        <h2 class="h5 mb-3">Start the stock over</h2>
+        <p>Currently <strong>${spools} spools</strong> with ${entries} history entries (weigh-ins, prints, corrections).</p>
+        <p class="small text-body-secondary">
+          Deletes all spools and their history, including which label is on which spool. Purchases, empty spools,
+          the label counter and the print log stay${linkedJobs ? html`; ${linkedJobs} logged prints lose their link to a spool` : nothing}.
+          Printed labels can be scanned again afterwards to set the spools up anew.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-primary" @click=${this.#export}>Export backup first</button>
+          <button class="btn btn-danger ms-auto" ?disabled=${spools === 0} @click=${this.#clearStock}>Delete all spools</button>
+        </div>
+      </section>
+    `;
+  }
+
+  #clearStock = async () => {
+    const n = this.#store.store.doc.spools.length;
+    if (!(await ask(`Delete all ${n} spools and their history? This cannot be undone (except from a backup or the repository history).`, { ok: 'Delete all spools', danger: true }))) return;
+    await this.#store.store.update((d) => clearStock(d));
+    await tell('The stock is empty now. Scan a label or add spools to start again.');
+  };
+
+  #labelCounter() {
+    const doc = this.#store.store.doc;
+    const stored = doc.settings.labelNextNumber ?? 1;
+    const next = nextLabelNumber(doc);
+    const highest = doc.spools.filter((s) => isLabelCode(s.label)).map((s) => s.label).sort().at(-1);
+    return html`
+      <section class="card card-body">
+        <h2 class="h5 mb-3">Label numbers</h2>
+        ${numberField('Next label number', stored, (v) => this.#set((s) => (s.labelNextNumber = Math.max(1, Math.round(v)))), {
+          min: 1, step: 1,
+          help: `The next label sheet starts at ${labelCode(next)}.${next > stored ? ` Codes up to ${highest} are already on spools, so it can't start lower.` : ''}`,
+        })}
+        <p class="small text-body-secondary mb-0">
+          Printing labels (Filaments → Spool setup) advances it. Lower it to reprint numbers you never stuck on a spool,
+          e.g. after a misprint.
+        </p>
       </section>
     `;
   }

@@ -4,7 +4,7 @@ import { createEmptyDocument } from '../src/core/document';
 import { loadDocument } from '../src/core/migrations';
 import type { AppDocument, FilamentPurchase, Spool } from '../src/core/model';
 import {
-  assignLabel, findSpool, isLabelCode, spoolFromLabel, spoolKeyFromScan,
+  assignLabel, clearStock, findSpool, isLabelCode, nextLabelNumber, spoolFromLabel, spoolKeyFromScan,
   gramsToMeters, labelGenerator, metersToGrams, remainingG, resolveTare, spoolsForPurchase,
   stockByFilament, suggestKind, suggestedSpoolCount, weighIn,
 } from '../src/core/stock';
@@ -115,6 +115,15 @@ describe('spools from purchases', () => {
     expect(suggestedSpoolCount({ ...purchase, totalKg: 0.75 })).toBe(1);
     expect(suggestedSpoolCount({ ...purchase, totalKg: 2.5 })).toBe(2);
   });
+
+  it('uses the spool size of the purchase: one 2.5 kg spool stays one spool', () => {
+    const big = { ...purchase, totalKg: 2.5, packageWeightKg: 2.5, spoolKg: 2.5 };
+    expect(suggestedSpoolCount(big)).toBe(1);
+    expect(suggestedSpoolCount({ ...big, totalKg: 5, quantity: 2 })).toBe(2);
+    expect(suggestedSpoolCount({ ...purchase, totalKg: 3, spoolKg: 0.75 })).toBe(4);
+    const [s] = spoolsForPurchase(big, suggestedSpoolCount(big), { newId: () => 'x', nextLabel: () => 'S1', date });
+    expect(s?.nominalG).toBe(2500);
+  });
 });
 
 describe('length and weight', () => {
@@ -219,4 +228,29 @@ describe('spoolKeyFromScan', () => {
     ['4260682250131', null],
     ['https://example.com/', null],
   ])('%s → %s', (text, key) => expect(spoolKeyFromScan(text)).toBe(key));
+});
+
+describe('stock maintenance', () => {
+  it('clears all spools and unlinks logged prints, keeping purchases and empty spools', () => {
+    const d = doc();
+    d.spools.push(spool({ id: 'a' }), spool({ id: 'b' }));
+    d.printJobs.push({ id: 'j', date, name: 'x', printerId: 'p', printTimeMin: 10, result: 'success', filaments: [{ filamentId: 'pla', grams: 5, spoolId: 'a' }] });
+    const kinds = d.spoolKinds.length;
+    clearStock(d);
+    expect(d.spools).toEqual([]);
+    expect(d.printJobs[0]!.filaments[0]).toEqual({ filamentId: 'pla', grams: 5 });
+    expect(d.spoolKinds.length).toBe(kinds);
+  });
+
+  it('next label number: stored counter, but never below codes on spools', () => {
+    const d = doc();
+    expect(nextLabelNumber(d)).toBe(1);
+    d.settings.labelNextNumber = 41;
+    expect(nextLabelNumber(d)).toBe(41);
+    d.spools.push(spool({ label: 'L0050' }), spool({ label: 'S99' }));
+    expect(nextLabelNumber(d)).toBe(51);
+    clearStock(d);
+    d.settings.labelNextNumber = 1;
+    expect(nextLabelNumber(d)).toBe(1);
+  });
 });

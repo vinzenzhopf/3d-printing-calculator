@@ -249,6 +249,8 @@ export interface FilamentPurchase {
   kindId?: Id;
   /** Size of the pack as sold (e.g. 4 for a 4 x 1 kg bundle split into colors); defaults to packageWeightKg. */
   packSizeKg?: number;
+  /** Filament per spool, e.g. 2.5 for one big spool. Defaults to 1 kg (or the whole purchase if less). */
+  spoolKg?: number;
   packageWeightKg: number;
   quantity: number;
   totalPrice: number;

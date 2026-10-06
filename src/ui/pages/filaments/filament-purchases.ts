@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { packClass } from '../../../core/calc/price-resolution';
 import type { AppDocument, FilamentPurchase } from '../../../core/model';
+import { spoolKgOf, suggestedSpoolCount } from '../../../core/stock';
 import { splitOrder, type Order, type OrderLine } from '../../../core/orders';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
@@ -66,20 +67,20 @@ export class FilamentPurchases extends LitElement {
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
-            <tr><th>Date</th><th>Store</th><th>Description</th><th>Filament</th><th class="text-end">kg</th><th class="text-end">Price</th><th class="text-end">/ kg</th><th>Pack</th><th></th></tr>
+            <tr><th>Date</th><th>Store</th><th>Description</th><th>Filament</th><th class="text-end">kg</th><th class="text-end">Price</th><th class="text-end">/ kg</th><th>Pack</th><th>Spools</th><th></th></tr>
           </thead>
           <tbody>
-            ${purchases.map((p) => (this.editing === p.id ? this.#editRow(p) : this.#row(p, cur)))}
+            ${purchases.map((p) => (this.editing === p.id ? html`${this.#row(p, cur, true)}${this.#editRow(p)}` : this.#row(p, cur)))}
           </tbody>
         </table>
       </div>
     `;
   }
 
-  #row(p: FilamentPurchase, cur: string) {
+  #row(p: FilamentPurchase, cur: string, editing = false) {
     const f = this.#doc.filaments.find((x) => x.id === p.filamentId);
     const kind = this.#doc.spoolKinds.find((k) => k.id === p.kindId);
-    return html`<tr>
+    return html`<tr class=${editing ? 'table-active' : ''}>
       <td class="text-nowrap">${p.date}</td>
       <td>${p.store}</td>
       <td class="small" title=${p.listingTitle ?? ''}>${p.description || html`<span class="text-body-secondary">–</span>`}${kind ? html` <span class="badge text-bg-light border" title="Empty spool">${kind.name}</span>` : nothing}</td>
@@ -87,29 +88,46 @@ export class FilamentPurchases extends LitElement {
       <td class="text-end">${num(p.totalKg, p.totalKg % 1 ? 2 : 0)}</td>
       <td class="text-end text-nowrap">${money(p.totalPrice, cur)}</td>
       <td class="text-end text-nowrap">${money(p.totalPrice / p.totalKg, cur)}</td>
-      <td class="small">${packClass(p) === 'multi' ? `multi (${num(p.packSizeKg ?? p.packageWeightKg, 1)} kg)` : 'single'}</td>
+      <td class="small text-nowrap">${packClass(p) === 'multi' ? `multi (${num(p.packSizeKg ?? p.packageWeightKg, 1)} kg)` : 'single'}</td>
+      <td class="small text-nowrap">${suggestedSpoolCount(p)} × ${num(spoolKgOf(p), 2)} kg</td>
       <td class="text-nowrap">
-        <button class="btn btn-sm btn-link" title="Edit" @click=${() => (this.editing = p.id)}>✎</button>
+        <button class="btn btn-sm btn-link" title=${editing ? 'Close' : 'Edit'} @click=${() => (this.editing = editing ? null : p.id)}>${editing ? '▴' : '✎'}</button>
         <button class="btn btn-sm btn-link text-danger" title="Delete" @click=${() => this.#delete(p)}>✕</button>
       </td>
     </tr>`;
   }
 
-  /** All fields of a purchase, edited in place; each change is saved directly. */
+  /** All fields of a purchase as a form below its row; each change is saved directly. */
   #editRow(p: FilamentPurchase) {
+    const doc = this.#doc;
+    const cur = doc.settings.currency;
     const set = (mutate: (x: FilamentPurchase) => void) =>
       void this.#store.store.update((d) => mutate(d.purchases.find((x) => x.id === p.id)!));
+    const label = (text: string, field: unknown, help?: unknown) =>
+      html`<label class="small d-block">${text}${field}${help ? html`<span class="form-text d-block">${help}</span>` : nothing}</label>`;
+    const pack = p.packSizeKg ?? p.packageWeightKg;
     return html`<tr class="table-active">
-      <td>${cellText(p.date, (v) => v && set((x) => (x.date = v)), { type: 'date', title: 'Date' })}</td>
-      <td style="min-width: 9rem">${storeField(this.#doc, p.store, (v) => set((x) => (x.store = v)))}</td>
-      <td>${cellText(p.description, (v) => set((x) => (x.description = v)), { title: 'Description', placeholder: 'Description / listing title' })}
-        <div class="mt-1">${cellSelect(p.kindId ?? '', kindOptions(this.#doc, SUGGESTED), (v) => set((x) => (v ? (x.kindId = v) : delete x.kindId)), true, 'Empty spool')}</div></td>
-      <td style="min-width: 18rem">${pickFilament(p.filamentId, (v) => { if (v) set((x) => (x.filamentId = v)); })}</td>
-      <td style="width: 6rem">${cellNumber(p.totalKg, (v) => v && set((x) => { x.totalKg = v; x.packageWeightKg = v / (x.quantity || 1); }), { min: 0.01, step: 0.01, title: 'kg' })}</td>
-      <td style="width: 7rem">${cellNumber(p.totalPrice, (v) => v !== null && set((x) => (x.totalPrice = v)), { min: 0, step: 0.01, title: 'Price incl. shipping share' })}</td>
-      <td></td>
-      <td style="width: 6rem">${cellNumber(p.packSizeKg ?? p.packageWeightKg, (v) => v && set((x) => (x.packSizeKg = v)), { min: 0.1, step: 0.5, title: 'Pack size as sold (kg)' })}</td>
-      <td><button class="btn btn-sm btn-primary" @click=${() => (this.editing = null)}>Done</button></td>
+      <td colspan="10" class="p-3">
+        <div class="row g-3" style="max-width: 60rem">
+          <div class="col-6 col-md-3">${label('Date', cellText(p.date, (v) => v && set((x) => (x.date = v)), { type: 'date', title: 'Date' }))}</div>
+          <div class="col-6 col-md-3">${label('Store', storeField(doc, p.store, (v) => set((x) => (x.store = v))))}</div>
+          <div class="col-md-6">${label('Description', cellText(p.description, (v) => set((x) => (x.description = v)), { title: 'Description', placeholder: 'Description / listing title' }))}</div>
+
+          <div class="col-md-8"><div class="small">Filament</div>${pickFilament(p.filamentId, (v) => { if (v) set((x) => (x.filamentId = v)); })}</div>
+          <div class="col-md-4">${label('Empty spool', cellSelect(p.kindId ?? '', kindOptions(doc, SUGGESTED), (v) => set((x) => (v ? (x.kindId = v) : delete x.kindId)), true, 'Empty spool'), 'For the spools of this purchase.')}</div>
+
+          <div class="col-6 col-md-3">${label('Filament (kg)', cellNumber(p.totalKg, (v) => v && set((x) => { x.totalKg = v; x.packageWeightKg = v / (x.quantity || 1); }), { min: 0.01, step: 0.01, title: 'kg' }))}</div>
+          <div class="col-6 col-md-3">${label(`Price (${cur})`, cellNumber(p.totalPrice, (v) => v !== null && set((x) => (x.totalPrice = v)), { min: 0, step: 0.01, title: 'Price incl. shipping share' }), `${money(p.totalPrice / p.totalKg, cur)}/kg, incl. shipping`)}</div>
+          <div class="col-6 col-md-3">${label('Pack size as sold (kg)', cellNumber(pack, (v) => v && set((x) => (x.packSizeKg = v)), { min: 0, step: 0.01, title: 'Pack size as sold (kg)' }), `${packClass(p) === 'multi' ? 'Multi-pack' : 'Single'} price (multi from 2 kg)`)}</div>
+          <div class="col-6 col-md-3">${label('kg per spool', cellNumber(p.spoolKg ?? null, (v) => set((x) => (v ? (x.spoolKg = v) : delete x.spoolKg)), { min: 0, step: 0.01, allowEmpty: true, placeholder: num(spoolKgOf(p), 2), title: 'kg per spool' }), `→ ${suggestedSpoolCount(p)} × ${num(spoolKgOf(p), 2)} kg spools`)}</div>
+
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" @click=${() => (this.editing = null)}>Done</button>
+            <span class="small text-body-secondary align-self-center">Changes are saved as you type.</span>
+            <button class="btn btn-sm btn-outline-danger ms-auto" @click=${() => this.#delete(p)}>Delete purchase</button>
+          </div>
+        </div>
+      </td>
     </tr>`;
   }
 
@@ -146,13 +164,15 @@ export class FilamentPurchases extends LitElement {
         </table>
         <div class="row g-2 align-items-end">
           <div class="col-auto"><button class="btn btn-sm btn-outline-primary" @click=${() => edit((o) => o.lines.push({ filamentId: '', kg: 1 }))}>+ Color / line</button></div>
-          <div class="col-md-2 ms-auto"><label class="small">Price (filament)${cellNumber(order.totalPrice, (v) => edit((o) => (o.totalPrice = v ?? 0)), { min: 0, step: 0.01, title: 'Total price' })}</label></div>
+          <div class="col-md-2 ms-auto"><label class="small">kg per spool${cellNumber(order.spoolKg ?? null, (v) => edit((o) => (v ? (o.spoolKg = v) : delete o.spoolKg)), { min: 0, step: 0.01, allowEmpty: true, placeholder: '1', title: 'kg per spool' })}</label></div>
+          <div class="col-md-2"><label class="small">Price (filament)${cellNumber(order.totalPrice, (v) => edit((o) => (o.totalPrice = v ?? 0)), { min: 0, step: 0.01, title: 'Total price' })}</label></div>
           <div class="col-md-2"><label class="small">Shipping${cellNumber(order.shipping, (v) => edit((o) => (o.shipping = v ?? 0)), { min: 0, step: 0.01, title: 'Shipping' })}</label></div>
           <div class="col-auto"><button class="btn btn-primary" ?disabled=${!valid} @click=${this.#save}>Save</button></div>
         </div>
         <p class="small text-body-secondary mt-2 mb-0">
           Bundles: add one line per color. The price is split by weight unless a line has its own price; shipping is
-          spread over the lines. Packs of 2 kg or more count as multi-packs for pricing.
+          spread over the lines. Packs of 2 kg or more count as multi-packs for pricing. "kg per spool" only matters for
+          stock: set it for big spools (e.g. 2.5), otherwise every kg becomes one spool.
         </p>
       </section>
     `;

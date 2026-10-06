@@ -2,7 +2,7 @@ import { LitElement, html, nothing, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { LABEL_LAYOUTS, buildLabelPdf, labelCode, labelCodes, qrMatrix, type LabelLayout } from '../../../core/labels';
 import type { AppDocument, SpoolKind } from '../../../core/model';
-import { isLabelCode } from '../../../core/stock';
+import { nextLabelNumber } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellText, numberField, selectField, switchField, textField, type Option } from '../../fields';
@@ -52,10 +52,8 @@ export class SpoolSetup extends LitElement {
     return LABEL_LAYOUTS.find((l) => l.id === s.labelLayoutId) ?? LABEL_LAYOUTS[0]!;
   }
 
-  /** Next free label number: the stored counter, but never below codes already in use. */
   #nextNumber(): number {
-    const used = this.#doc.spools.filter((s) => isLabelCode(s.label)).map((s) => Number(s.label.slice(1)));
-    return Math.max(this.#doc.settings.labelNextNumber ?? 1, ...used.map((n) => n + 1), 1);
+    return nextLabelNumber(this.#doc);
   }
 
   #labels() {

@@ -165,7 +165,7 @@ export class FilamentStock extends LitElement {
           const p = doc.purchases.find((x) => x.id === v);
           this.fromPurchase = { purchaseId: v, count: p ? suggestedSpoolCount(p) : 1 };
         }, true, 'Purchase')}</label></div>
-      <div class="col-4 col-md-2"><label class="small d-block">Spools${cellNumber(this.fromPurchase.count, (v) => (this.fromPurchase = { ...this.fromPurchase, count: Math.max(1, v ?? 1) }), { min: 1, step: 1, title: 'Spools' })}</label></div>
+      <div class="col-4 col-md-2"><label class="small d-block">Spools${selected ? html` of ${num((selected.totalKg * 1000) / this.fromPurchase.count)} g` : nothing}${cellNumber(this.fromPurchase.count, (v) => (this.fromPurchase = { ...this.fromPurchase, count: Math.max(1, v ?? 1) }), { min: 1, step: 1, title: 'Spools' })}</label></div>
       <div class="col-8 col-md-3"><button class="btn btn-sm btn-primary w-100" ?disabled=${!selected} @click=${async () => {
         if (!selected) return;
         const spools = spoolsForPurchase(selected, this.fromPurchase.count, { newId, nextLabel: labelGenerator(this.#doc), date: today(), kindId: suggestKind(this.#doc, selected.filamentId, selected.id) });

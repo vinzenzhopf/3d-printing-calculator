@@ -72,9 +72,14 @@ export function weighIn(doc: AppDocument, spool: Spool, grossG: number, date: Is
   };
 }
 
-/** Suggested split of a purchase into spools: 1 kg spools, or one spool for smaller packs. */
+/** Filament per spool of a purchase: as entered, else 1 kg (or the whole purchase if less). */
+export function spoolKgOf(purchase: FilamentPurchase): number {
+  return purchase.spoolKg ?? Math.min(1, purchase.totalKg);
+}
+
+/** Suggested split of a purchase into spools of its spool size (a partial spool counts as none). */
 export function suggestedSpoolCount(purchase: FilamentPurchase): number {
-  return purchase.totalKg <= 1 ? 1 : Math.max(1, Math.floor(purchase.totalKg));
+  return Math.max(1, Math.floor(purchase.totalKg / spoolKgOf(purchase) + 1e-9));
 }
 
 /** Sealed spools for a purchase, booked at their full nominal weight. */
@@ -169,6 +174,21 @@ export function findSpool(doc: AppDocument, key: string): Spool | undefined {
 /** Printed label codes ("L0042") as produced by core/labels. */
 export function isLabelCode(key: string): boolean {
   return /^L\d{4,}$/i.test(key.trim());
+}
+
+/** Next label number to print: the stored counter, but never below codes already on spools. */
+export function nextLabelNumber(doc: AppDocument): number {
+  const used = doc.spools.filter((s) => isLabelCode(s.label)).map((s) => Number(s.label.slice(1)));
+  return Math.max(doc.settings.labelNextNumber ?? 1, ...used.map((n) => n + 1), 1);
+}
+
+/**
+ * Starts the stock from scratch: deletes all spools with their history and
+ * unlinks them from logged prints. Purchases, empty spools and the print log stay.
+ */
+export function clearStock(doc: AppDocument): void {
+  doc.spools = [];
+  for (const job of doc.printJobs) for (const f of job.filaments) delete f.spoolId;
 }
 
 /**

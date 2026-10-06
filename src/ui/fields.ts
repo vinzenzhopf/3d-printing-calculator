@@ -122,10 +122,11 @@ export function selectField(
 export function cellNumber(
   value: number | null | undefined,
   onChange: (value: number | null) => void,
-  opts: { step?: number; min?: number; title?: string; width?: string; allowEmpty?: boolean } = {},
+  opts: { step?: number; min?: number; title?: string; width?: string; allowEmpty?: boolean; placeholder?: string } = {},
 ): TemplateResult {
   return html`<input
     type="number"
+    placeholder=${opts.placeholder ?? nothing}
     class="form-control form-control-sm"
     style=${opts.width ? `width:${opts.width}` : nothing}
     aria-label=${opts.title ?? nothing}

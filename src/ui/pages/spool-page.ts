@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { AppDocument, Spool } from '../../core/model';
-import { assignLabel, findSpool, isLabelCode, remainingG, resolveTare, spoolFromLabel, suggestKind, weighIn } from '../../core/stock';
+import { assignLabel, findSpool, isLabelCode, remainingG, resolveTare, spoolFromLabel, spoolKgOf, suggestKind, weighIn } from '../../core/stock';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { pickFilament } from '../filament-picker';
@@ -144,7 +144,7 @@ export class SpoolPage extends LitElement {
         <div class="row g-2">
           <div class="col-6"><label class="small d-block">Status${cellSelect(s.status, SPOOL_STATUS, (v) => set((x) => (x.status = v as Spool['status'])), true, 'Status')}</label></div>
           <div class="col-6"><label class="small d-block">Location${cellText(s.location, (v) => set((x) => (x.location = v || undefined)), { title: 'Location', placeholder: 'shelf, dry box…' })}</label></div>
-          <div class="col-6"><label class="small d-block">Size (g)${cellNumber(s.nominalG, (v) => v && set((x) => (x.nominalG = v)), { min: 1, step: 50, title: 'Nominal grams' })}</label></div>
+          <div class="col-6"><label class="small d-block">Size (g)${cellNumber(s.nominalG, (v) => v && set((x) => (x.nominalG = v)), { min: 0, step: 1, title: 'Nominal grams' })}</label></div>
           <div class="col-6"><label class="small d-block">Empty spool${cellSelect(s.kindId ?? '', kindOptions(doc), (v) => set((x) => (v ? (x.kindId = v) : delete x.kindId)), true, 'Empty spool')}</label></div>
           <div class="col-6"><label class="small d-block">Own empty weight (g)${cellNumber(s.tareG ?? null, (v) => set((x) => (v === null ? delete x.tareG : (x.tareG = v))), { min: 0, allowEmpty: true, title: 'Own empty weight' })}</label></div>
           <div class="col-6"><label class="small d-block">Correct stock by (g)${cellNumber(null, (v) => { if (v) set((x) => x.movements.push({ id: newId(), date: today(), kind: 'adjust', grams: v, note: 'Manual correction' })); }, { allowEmpty: true, title: 'Correction in grams' })}</label></div>
@@ -229,10 +229,10 @@ export class SpoolPage extends LitElement {
                 : ns.filamentId ? 'Choose the empty spool below.' : 'Choose the filament first.'} Leave empty to weigh later.</span>
             </label>`}
         <div class="row g-2 mb-2">
-          <div class="col-6"><label class="small d-block">Size (g)${cellNumber(ns.nominalG, (v) => set({ nominalG: v ?? 1000 }), { min: 1, step: 50, title: 'Nominal grams' })}</label></div>
+          <div class="col-6"><label class="small d-block">Size (g)${cellNumber(ns.nominalG, (v) => set({ nominalG: v ?? 1000 }), { min: 0, step: 1, title: 'Nominal grams' })}</label></div>
           <div class="col-6"><label class="small d-block">Empty spool${cellSelect(ns.kindId, kindOptions(doc), (v) => set({ kindId: v }), true, 'Empty spool')}</label></div>
           ${purchases.length
-            ? html`<div class="col-12"><label class="small d-block">From purchase (optional)${cellSelect(ns.purchaseId, [{ value: '', label: '–' }, ...purchases.map((p) => ({ value: p.id, label: `${p.date}${p.store ? ` · ${p.store}` : ''} · ${num(p.totalKg, 2)} kg · ${money(p.totalPrice / p.totalKg, doc.settings.currency)}/kg` }))], (v) => set({ purchaseId: v, kindId: suggestKind(doc, ns.filamentId, v || undefined) ?? '' }), true, 'Purchase')}</label></div>`
+            ? html`<div class="col-12"><label class="small d-block">From purchase (optional)${cellSelect(ns.purchaseId, [{ value: '', label: '–' }, ...purchases.map((p) => ({ value: p.id, label: `${p.date}${p.store ? ` · ${p.store}` : ''} · ${num(p.totalKg, 2)} kg · ${money(p.totalPrice / p.totalKg, doc.settings.currency)}/kg` }))], (v) => { const p = doc.purchases.find((x) => x.id === v); set({ purchaseId: v, kindId: suggestKind(doc, ns.filamentId, v || undefined) ?? '', ...(p ? { nominalG: Math.round(spoolKgOf(p) * 1000) } : {}) }); }, true, 'Purchase')}</label></div>`
             : nothing}
         </div>
         <button class="btn btn-primary btn-lg w-100" ?disabled=${!ns.filamentId} @click=${() => this.#createWithLabel(code)}>Save spool ${code}</button>
