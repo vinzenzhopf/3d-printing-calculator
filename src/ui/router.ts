@@ -16,6 +16,9 @@ export const ROUTES: Route[] = [
   { path: 'settings', label: 'Settings' },
 ];
 
+/** Routes without a navigation entry, e.g. `#/spool/L0042` (opened from a printed label's QR code). */
+export const HIDDEN_ROUTES = ['spool'];
+
 /** Tracks `#/<path>/<sub>` and re-renders the host on change. */
 export class HashRouter implements ReactiveController {
   path = '';
@@ -39,8 +42,9 @@ export class HashRouter implements ReactiveController {
   }
 
   #read(): void {
-    const [path = '', sub = ''] = location.hash.replace(/^#\/?/, '').split('/');
-    this.path = ROUTES.some((r) => r.path === path) ? path : 'dashboard';
+    const [path = '', rawSub = ''] = location.hash.replace(/^#\/?/, '').split('/');
+    const sub = decodeURIComponent(rawSub);
+    this.path = ROUTES.some((r) => r.path === path) || HIDDEN_ROUTES.includes(path) ? path : 'dashboard';
     this.sub = sub;
   }
 }

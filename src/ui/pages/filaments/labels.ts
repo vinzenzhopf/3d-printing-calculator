@@ -1,6 +1,7 @@
 import { html, nothing } from 'lit';
 import type { PriceSource, ResolvedPrice } from '../../../core/calc/price-resolution';
-import type { AppDocument, Filament, ProductLine } from '../../../core/model';
+import type { AppDocument, Filament, ProductLine, Spool } from '../../../core/model';
+import type { ResolvedTare } from '../../../core/stock';
 import type { Option } from '../../fields';
 import { money } from '../../format';
 
@@ -79,4 +80,30 @@ export function storeField(doc: AppDocument, value: string, onChange: (store: st
         </select>`
       : ''}
   </div>`;
+}
+
+export const SPOOL_STATUS: Option[] = [
+  { value: 'sealed', label: 'Sealed' },
+  { value: 'open', label: 'Open' },
+  { value: 'empty', label: 'Empty' },
+  { value: 'discarded', label: 'Discarded' },
+];
+
+export const SPOOL_TYPES: Option[] = [
+  { value: 'plastic', label: 'Plastic spool' },
+  { value: 'cardboard', label: 'Cardboard spool' },
+  { value: 'refill', label: 'Refill / reusable spool' },
+];
+
+export const TARE_SOURCE: Record<ResolvedTare['source'], string> = {
+  spool: 'measured',
+  line: 'line preset',
+  manufacturer: 'brand preset',
+  default: 'generic preset',
+  none: 'no preset',
+};
+
+/** Link to a spool's page (also what the printed QR codes point to). */
+export function spoolHref(spool: Spool): string {
+  return `#/spool/${encodeURIComponent(spool.label || spool.id)}`;
 }

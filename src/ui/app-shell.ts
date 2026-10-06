@@ -10,6 +10,7 @@ import './pages/filaments-page';
 import './pages/quotes-page';
 import './pages/customers-page';
 import './pages/print-log-page';
+import './pages/spool-page';
 
 @customElement('app-shell')
 export class AppShell extends LitElement {
@@ -45,7 +46,7 @@ export class AppShell extends LitElement {
           <ul class="navbar-nav app-nav">
             ${ROUTES.map(
               (r) => html`<li class="nav-item">
-                <a class="nav-link ${this.#router.path === r.path ? 'active' : ''}" href="#/${r.path}">${r.label}</a>
+                <a class="nav-link ${this.#router.path === r.path || (this.#router.path === 'spool' && r.path === 'filaments') ? 'active' : ''}" href="#/${r.path}">${r.label}</a>
               </li>`,
             )}
           </ul>
@@ -79,6 +80,8 @@ export class AppShell extends LitElement {
         return html`<printers-page></printers-page>`;
       case 'quotes':
         return html`<quotes-page .sub=${this.#router.sub}></quotes-page>`;
+      case 'spool':
+        return html`<spool-page .key=${this.#router.sub}></spool-page>`;
       case 'log':
         return html`<print-log-page></print-log-page>`;
       case 'customers':

@@ -64,6 +64,11 @@ export interface Settings {
   laborPerPlateMin: number;
   /** Months of purchases that always count for the current filament price (FI-10). */
   filamentPriceWindowMonths: number;
+  /** Next number for printed spool labels (L0001, …), so print runs continue the sequence. */
+  labelNextNumber?: number;
+  /** Label sheet used for printing: a preset id from core/labels, or "custom" with `labelCustomLayout`. */
+  labelLayoutId?: string;
+  labelCustomLayout?: import('./labels').LabelLayout;
   /** Business mode shows business details and numbering on quotes (PP-4). */
   businessMode: boolean;
   business: { name: string; address: string; email: string };

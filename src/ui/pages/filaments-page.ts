@@ -4,12 +4,14 @@ import './filaments/filament-catalog';
 import './filaments/filament-purchases';
 import './filaments/price-list';
 import './filaments/filament-stock';
+import './filaments/spool-setup';
 
 const TABS = [
   { sub: '', label: 'Catalog' },
   { sub: 'stock', label: 'Stock' },
   { sub: 'purchases', label: 'Purchases' },
   { sub: 'prices', label: 'Price list' },
+  { sub: 'setup', label: 'Spool setup' },
 ];
 
 @customElement('filaments-page')
@@ -37,6 +39,8 @@ export class FilamentsPage extends LitElement {
         ? html`<filament-purchases></filament-purchases>`
         : tab === 'prices'
           ? html`<price-list></price-list>`
+        : tab === 'setup'
+          ? html`<spool-setup></spool-setup>`
           : html`<filament-catalog></filament-catalog>`}
     `;
   }

@@ -4,6 +4,7 @@ import { createEmptyDocument } from '../src/core/document';
 import { loadDocument } from '../src/core/migrations';
 import type { AppDocument, FilamentPurchase, Spool } from '../src/core/model';
 import {
+  assignLabel, findSpool, isLabelCode,
   gramsToMeters, labelGenerator, metersToGrams, remainingG, resolveTare, spoolsForPurchase,
   stockByFilament, suggestedSpoolCount, weighIn,
 } from '../src/core/stock';
@@ -101,5 +102,21 @@ describe('schema 2 migration', () => {
     expect(d.schemaVersion).toBe(SCHEMA_VERSION);
     expect(d.spools).toEqual([]);
     expect(d.tarePresets.length).toBeGreaterThan(0);
+  });
+});
+
+describe('spool labels', () => {
+  it('finds spools by label (case-insensitive) or id, and assigns printed labels', () => {
+    const d = doc();
+    d.spools.push(spool({ id: 'a', label: 'S7' }), spool({ id: 'b', label: 'S8' }));
+    expect(findSpool(d, 's7')?.id).toBe('a');
+    expect(findSpool(d, 'b')?.id).toBe('b');
+    expect(isLabelCode('l0042')).toBe(true);
+    expect(isLabelCode('S7')).toBe(false);
+
+    assignLabel(d, 'a', 'l0042');
+    expect(findSpool(d, 'L0042')?.id).toBe('a');
+    expect(findSpool(d, 'S7')).toBeUndefined();
+    expect(() => assignLabel(d, 'b', 'L0042')).toThrow('already on another spool');
   });
 });

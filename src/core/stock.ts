@@ -139,3 +139,27 @@ export function toBuyList(doc: AppDocument): ToBuy[] {
     .filter((x) => x.stockG < x.thresholdG)
     .sort((a, b) => a.stockG / a.thresholdG - b.stockG / b.thresholdG);
 }
+
+/** A spool by its label (printed label code like "L0042", or an older "S12") or its id. */
+export function findSpool(doc: AppDocument, key: string): Spool | undefined {
+  const k = key.trim().toLowerCase();
+  return doc.spools.find((s) => s.label.toLowerCase() === k) ?? doc.spools.find((s) => s.id === key);
+}
+
+/** Printed label codes ("L0042") as produced by core/labels. */
+export function isLabelCode(key: string): boolean {
+  return /^L\d{4,}$/i.test(key.trim());
+}
+
+/**
+ * Sticks a printed label on a spool: the label code becomes the spool's label.
+ * A code can only belong to one spool.
+ */
+export function assignLabel(doc: AppDocument, spoolId: Id, code: string): void {
+  const normalized = code.trim().toUpperCase();
+  const other = doc.spools.find((s) => s.label.toUpperCase() === normalized && s.id !== spoolId);
+  if (other) throw new Error(`Label ${normalized} is already on another spool.`);
+  const spool = doc.spools.find((s) => s.id === spoolId);
+  if (!spool) throw new Error('Unknown spool.');
+  spool.label = normalized;
+}

@@ -31,6 +31,7 @@ use (installable as an app). See the [milestones](docs/implementation-plan.md#8-
 - Machine cost per hour, including a reserve for your next printer; maintenance reminders by print hours
 - Filament price history per product line
 - Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets, low-stock list
+- Printable QR spool labels (PDF for common A4 label sheets): scan a spool with the phone to weigh it
 - Print log: deducts filament from spools, tracks printer hours and your real failure rate; prints can be detected automatically via [Home Assistant](docs/home-assistant.md) (OctoPrint)
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
 - Works offline and can be installed as an app

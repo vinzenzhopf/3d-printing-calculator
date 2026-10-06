@@ -77,6 +77,8 @@ src/
     zip.ts                      minimal ZIP reader for 3MF
     parts.ts                    parts per run, part planner (QC-3)
     maintenance.ts              maintenance tasks by print hours (MC-5)
+    inbox.ts, filename.ts       prints detected by Home Assistant; facts from slicer file names
+    labels.ts, pdf.ts           QR spool labels on A4 label sheets; minimal PDF writer
   state/
     app-store.ts                AppStore + StoreController (Lit reactive controller)
     store-instance.ts
@@ -94,10 +96,11 @@ src/
     pages/dashboard-page.ts
     pages/settings-page.ts      settings, business/VAT, export/import/reset
     pages/printers-page.ts      printers, power tables, hour counters, machine costs, reserves
-    pages/filaments-page.ts     tabs: catalog, stock, purchases, price list (pages/filaments/*)
+    pages/filaments-page.ts     tabs: catalog, stock, purchases, price list, spool setup (pages/filaments/*)
     pages/quotes-page.ts        quote list; quotes/quote-editor.ts, quotes/quote-offer.ts (print view)
     pages/customers-page.ts     customers with defaults, quote history, revenue
-    pages/print-log-page.ts     print log
+    pages/print-log-page.ts     print log (+ detected prints inbox)
+    pages/spool-page.ts         one spool, phone-first (#/spool/<label>): weigh, details, history; QR scan target
     pricing-profiles-editor.ts  pricing profiles (on the settings page)
     price-history-chart.ts      €/kg per purchase over time (FI-8)
     slicer-file.ts              reads slicer files picked by the user (head/tail, 3MF)
