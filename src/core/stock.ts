@@ -163,3 +163,52 @@ export function assignLabel(doc: AppDocument, spoolId: Id, code: string): void {
   if (!spool) throw new Error('Unknown spool.');
   spool.label = normalized;
 }
+
+export interface LabelSpoolInput {
+  code: string;
+  filamentId: Id;
+  nominalG: number;
+  spoolType: SpoolType;
+  /** Unopened: booked at full nominal weight, no weighing needed. */
+  sealed: boolean;
+  /** Scale reading incl. spool, for opened spools (optional: stock stays unknown without it). */
+  grossG?: number | null;
+  purchaseId?: Id;
+  date: IsoDate;
+}
+
+/**
+ * Onboarding a physical spool from its printed label: create it with the label
+ * and, in the same step, book its stock (sealed = full, or a weigh-in).
+ */
+export function spoolFromLabel(doc: AppDocument, input: LabelSpoolInput, newId: () => Id): Spool {
+  const code = input.code.trim().toUpperCase();
+  if (doc.spools.some((s) => s.label.toUpperCase() === code)) throw new Error(`Label ${code} is already on another spool.`);
+  const spool: Spool = {
+    id: newId(),
+    filamentId: input.filamentId,
+    label: code,
+    nominalG: input.nominalG,
+    spoolType: input.spoolType,
+    status: input.sealed ? 'sealed' : 'open',
+    movements: [],
+    ...(input.purchaseId ? { purchaseId: input.purchaseId } : {}),
+  };
+  if (input.sealed) {
+    spool.movements.push({ id: newId(), date: input.date, kind: 'initial', grams: input.nominalG, note: 'Sealed spool' });
+  } else if (input.grossG !== undefined && input.grossG !== null) {
+    spool.movements.push(weighIn(doc, spool, input.grossG, input.date, newId()).movement);
+  }
+  return spool;
+}
+
+/**
+ * The spool key in a scanned code: our label links (".../#/spool/L0042") or a
+ * bare label code. null for anything else (e.g. a product barcode → use as search).
+ */
+export function spoolKeyFromScan(text: string): string | null {
+  const t = text.trim();
+  const link = /#\/spool\/([^/?#\s]+)/.exec(t);
+  if (link) return decodeURIComponent(link[1]!);
+  return isLabelCode(t) ? t.toUpperCase() : null;
+}

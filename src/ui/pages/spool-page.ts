@@ -1,13 +1,15 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { AppDocument, Spool, SpoolType } from '../../core/model';
-import { assignLabel, findSpool, isLabelCode, remainingG, resolveTare, weighIn } from '../../core/stock';
+import { assignLabel, findSpool, isLabelCode, remainingG, resolveTare, spoolFromLabel, weighIn } from '../../core/stock';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
 import { pickFilament } from '../filament-picker';
+import { scanAndOpen } from '../qr-scanner';
 import { cellNumber, cellSelect, cellText, switchField } from '../fields';
 import { money, newId, num, today } from '../format';
 import { SPOOL_STATUS, SPOOL_TYPES, TARE_SOURCE, filamentLabel, lineLabel } from './filaments/labels';
+import { ask } from '../dialogs';
 
 /**
  * One spool, phone-first (`#/spool/<label or id>`). This is what the QR code on
@@ -24,7 +26,8 @@ export class SpoolPage extends LitElement {
   @state() private saveAsPreset = true;
   @state() private saved = '';
   @state() private assignFilter = '';
-  @state() private newSpool = { filamentId: '', spoolType: 'plastic' as SpoolType, nominalG: 1000 };
+  /** "New spool from label" form; filament, size and type are remembered for the next label. */
+  @state() private newSpool: NewSpoolDraft = loadDraft();
   @state() private error = '';
 
   protected override createRenderRoot() {
@@ -38,7 +41,10 @@ export class SpoolPage extends LitElement {
   override render() {
     const spool = findSpool(this.#doc, this.key);
     return html`
-      <a href="#/filaments/stock" class="btn btn-sm btn-outline-secondary mb-3">← Stock</a>
+      <div class="d-flex gap-2 mb-3">
+        <a href="#/filaments/stock" class="btn btn-sm btn-outline-secondary">← Stock</a>
+        <button class="btn btn-sm btn-outline-primary ms-auto" @click=${() => void scanAndOpen()}>📷 Scan next label</button>
+      </div>
       ${spool
         ? this.#spool(spool)
         : isLabelCode(this.key)
@@ -186,8 +192,8 @@ export class SpoolPage extends LitElement {
     `;
   }
 
-  #delete(s: Spool) {
-    if (!confirm(`Delete spool ${s.label} and its history?`)) return;
+  async #delete(s: Spool) {
+    if (!(await ask(`Delete spool ${s.label} and its history?`, { ok: 'Delete', danger: true }))) return;
     void this.#store.store.update((d) => (d.spools = d.spools.filter((x) => x.id !== s.id)));
     location.hash = '#/filaments/stock';
   }
@@ -206,37 +212,55 @@ export class SpoolPage extends LitElement {
       .filter((s) => s.status !== 'discarded' && s.status !== 'empty')
       .filter((s) => !q || `${s.label} ${label(s)} ${s.location ?? ''}`.toLowerCase().includes(q))
       .sort((a, b) => Number(isLabelCode(a.label)) - Number(isLabelCode(b.label)) || label(a).localeCompare(label(b)));
+    const ns = this.newSpool;
+    const tare = ns.filamentId ? resolveTare(doc, { filamentId: ns.filamentId, spoolType: ns.spoolType }) : null;
+    const purchases = doc.purchases.filter((p) => p.filamentId === ns.filamentId).sort((a, b) => b.date.localeCompare(a.date));
+    const set = (patch: Partial<NewSpoolDraft>) => (this.newSpool = { ...this.newSpool, ...patch });
     return html`
       <section class="card card-body mb-3">
-        <h1 class="h4">Label ${code}</h1>
-        <p class="mb-0">This label is not on a spool yet. Which spool did you stick it on?</p>
-      </section>
-      <section class="card card-body mb-3">
-        <h2 class="h6">Existing spool</h2>
-        <input class="form-control mb-2" type="search" placeholder="Filter (color, brand, location)…" aria-label="Filter spools"
-          .value=${this.assignFilter} @input=${(e: Event) => (this.assignFilter = (e.target as HTMLInputElement).value)} />
-        <div class="list-group">
-          ${candidates.map((s) => {
-            const f = doc.filaments.find((x) => x.id === s.filamentId);
-            const g = remainingG(s);
-            return html`<button class="list-group-item list-group-item-action d-flex gap-2 align-items-center" @click=${() => this.#assign(s.id, code)}>
-              <span class="rounded-circle border flex-shrink-0" style="width:1.25rem;height:1.25rem;background:${f?.colorHex || 'transparent'}"></span>
-              <span class="me-auto text-start">${label(s)}<div class="small text-body-secondary">${s.label}${s.location ? ` · ${s.location}` : ''}</div></span>
-              <span class="small text-nowrap">${g === null ? '?' : `${num(g)} g`}</span>
-            </button>`;
-          })}
-          ${candidates.length === 0 ? html`<div class="text-body-secondary small">No spools in use.</div>` : nothing}
-        </div>
+        <h1 class="h4 mb-1">Label ${code}</h1>
+        <p class="mb-0 text-body-secondary">Not on a spool yet. Set up the spool you stuck it on.</p>
       </section>
       <section class="card card-body mb-3">
         <h2 class="h6">New spool</h2>
-        <div class="mb-2">${pickFilament(this.newSpool.filamentId, (v) => (this.newSpool = { ...this.newSpool, filamentId: v }))}</div>
+        <div class="mb-2">${pickFilament(ns.filamentId, (v) => set({ filamentId: v, purchaseId: '' }))}</div>
+        ${switchField('Sealed / unopened (full weight, no weighing)', ns.sealed, (v) => set({ sealed: v }))}
+        ${ns.sealed
+          ? nothing
+          : html`<label class="form-label d-block mb-2">Scale reading incl. spool (g)
+              <input class="form-control form-control-lg" type="number" inputmode="decimal" min="0" step="1" .value=${ns.grossG === null ? '' : String(ns.grossG)}
+                @input=${(e: Event) => { const v = (e.target as HTMLInputElement).valueAsNumber; set({ grossG: Number.isFinite(v) ? v : null }); }} />
+              <span class="form-text d-block">${tare && tare.grams !== null
+                ? html`Empty spool ${tare.grams} g (${TARE_SOURCE[tare.source]})${ns.grossG !== null ? html` → <strong>${num(Math.max(ns.grossG - tare.grams, 0))} g</strong> filament` : nothing}`
+                : 'Choose the filament first.'} Leave empty to weigh later.</span>
+            </label>`}
         <div class="row g-2 mb-2">
-          <div class="col-6"><label class="small d-block">Size (g)${cellNumber(this.newSpool.nominalG, (v) => (this.newSpool = { ...this.newSpool, nominalG: v ?? 1000 }), { min: 1, step: 50, title: 'Nominal grams' })}</label></div>
-          <div class="col-6"><label class="small d-block">Spool${cellSelect(this.newSpool.spoolType, SPOOL_TYPES, (v) => (this.newSpool = { ...this.newSpool, spoolType: v as SpoolType }), true, 'Spool type')}</label></div>
+          <div class="col-6"><label class="small d-block">Size (g)${cellNumber(ns.nominalG, (v) => set({ nominalG: v ?? 1000 }), { min: 1, step: 50, title: 'Nominal grams' })}</label></div>
+          <div class="col-6"><label class="small d-block">Spool${cellSelect(ns.spoolType, SPOOL_TYPES, (v) => set({ spoolType: v as SpoolType }), true, 'Spool type')}</label></div>
+          ${purchases.length
+            ? html`<div class="col-12"><label class="small d-block">From purchase (optional)${cellSelect(ns.purchaseId, [{ value: '', label: '–' }, ...purchases.map((p) => ({ value: p.id, label: `${p.date}${p.store ? ` · ${p.store}` : ''} · ${num(p.totalKg, 2)} kg · ${money(p.totalPrice / p.totalKg, doc.settings.currency)}/kg` }))], (v) => set({ purchaseId: v }), true, 'Purchase')}</label></div>`
+            : nothing}
         </div>
-        <button class="btn btn-primary w-100" ?disabled=${!this.newSpool.filamentId} @click=${() => this.#createWithLabel(code)}>Create spool with label ${code}</button>
+        <button class="btn btn-primary btn-lg w-100" ?disabled=${!ns.filamentId} @click=${() => this.#createWithLabel(code)}>Save spool ${code}</button>
       </section>
+      ${candidates.length
+        ? html`<details class="card card-body mb-3" ?open=${candidates.some((s) => !isLabelCode(s.label))}>
+            <summary class="h6 mb-0">…or put it on a spool that is already in the app (${candidates.length})</summary>
+            <input class="form-control my-2" type="search" placeholder="Filter (color, brand, location)…" aria-label="Filter spools"
+              .value=${this.assignFilter} @input=${(e: Event) => (this.assignFilter = (e.target as HTMLInputElement).value)} />
+            <div class="list-group">
+              ${candidates.map((s) => {
+                const f = doc.filaments.find((x) => x.id === s.filamentId);
+                const g = remainingG(s);
+                return html`<button class="list-group-item list-group-item-action d-flex gap-2 align-items-center" @click=${() => this.#assign(s.id, code)}>
+                  <span class="rounded-circle border flex-shrink-0" style="width:1.25rem;height:1.25rem;background:${f?.colorHex || 'transparent'}"></span>
+                  <span class="me-auto text-start">${label(s)}<div class="small text-body-secondary">${s.label}${s.location ? ` · ${s.location}` : ''}</div></span>
+                  <span class="small text-nowrap">${g === null ? '?' : `${num(g)} g`}</span>
+                </button>`;
+              })}
+            </div>
+          </details>`
+        : nothing}
       ${this.error ? html`<div class="alert alert-danger">${this.error}</div>` : nothing}
     `;
   }
@@ -253,8 +277,47 @@ export class SpoolPage extends LitElement {
 
   async #createWithLabel(code: string) {
     const ns = this.newSpool;
-    await this.#store.store.update((d) =>
-      d.spools.push({ id: newId(), filamentId: ns.filamentId, label: code, nominalG: ns.nominalG, spoolType: ns.spoolType, status: 'open', movements: [] }),
-    );
+    try {
+      await this.#store.store.update((d) => {
+        d.spools.push(spoolFromLabel(d, { code, filamentId: ns.filamentId, nominalG: ns.nominalG, spoolType: ns.spoolType, sealed: ns.sealed, grossG: ns.grossG, purchaseId: ns.purchaseId || undefined, date: today() }, newId));
+      });
+      saveDraft(ns);
+      // Next label starts with the same filament/size/type, but a fresh reading.
+      this.newSpool = { ...ns, sealed: false, grossG: null, purchaseId: '' };
+      this.saved = `Spool ${code} saved. Scan the next label to continue.`;
+      this.error = '';
+    } catch (e) {
+      this.error = e instanceof Error ? e.message : String(e);
+    }
+  }
+}
+
+interface NewSpoolDraft {
+  filamentId: string;
+  nominalG: number;
+  spoolType: SpoolType;
+  sealed: boolean;
+  grossG: number | null;
+  purchaseId: string;
+}
+
+const DRAFT_KEY = '3dpc.newSpoolDraft';
+
+function loadDraft(): NewSpoolDraft {
+  const fallback: NewSpoolDraft = { filamentId: '', nominalG: 1000, spoolType: 'plastic', sealed: false, grossG: null, purchaseId: '' };
+  try {
+    const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? 'null') as Partial<NewSpoolDraft> | null;
+    return { ...fallback, ...saved, sealed: false, grossG: null, purchaseId: '' };
+  } catch {
+    return fallback;
+  }
+}
+
+function saveDraft(d: NewSpoolDraft): void {
+  try {
+    // Not "sealed": booking an opened spool as full by accident would be wrong.
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ filamentId: d.filamentId, nominalG: d.nominalG, spoolType: d.spoolType }));
+  } catch {
+    // storage blocked: just no defaults next time
   }
 }

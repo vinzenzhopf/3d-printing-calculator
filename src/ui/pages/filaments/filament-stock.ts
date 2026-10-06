@@ -1,10 +1,11 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import type { AppDocument, Spool, SpoolType } from '../../../core/model';
-import { labelGenerator, remainingG, spoolsForPurchase, stockByFilament, suggestedSpoolCount } from '../../../core/stock';
+import { labelGenerator, remainingG, spoolKeyFromScan, spoolsForPurchase, stockByFilament, suggestedSpoolCount } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { pickFilament } from '../../filament-picker';
+import { scanAndOpen } from '../../qr-scanner';
 import { cellNumber, cellSelect } from '../../fields';
 import { newId, num, today } from '../../format';
 import { SPOOL_TYPES, filamentLabel, spoolHref } from './labels';
@@ -62,8 +63,11 @@ export class FilamentStock extends LitElement {
       ${this.addMode ? html`<section class="card card-body mb-3 bg-body-tertiary">${this.addMode === 'purchase' ? this.#addFromPurchase() : this.#addFromShelf()}</section>` : nothing}
 
       <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-        <input class="form-control form-control-sm" style="max-width: 16rem" type="search" placeholder="Filter (color, brand, label, location)…" aria-label="Filter"
-          .value=${this.filter} @input=${(e: Event) => (this.filter = (e.target as HTMLInputElement).value)} />
+        <div class="input-group input-group-sm" style="max-width: 20rem">
+          <input class="form-control" type="search" placeholder="Filter (color, brand, label, location)…" aria-label="Filter"
+            .value=${this.filter} @input=${(e: Event) => (this.filter = (e.target as HTMLInputElement).value)} />
+          <button class="btn btn-outline-primary" title="Scan a spool label with the camera" @click=${() => void scanAndOpen((text) => (this.filter = text))}>📷 Scan</button>
+        </div>
         <div class="btn-group btn-group-sm" role="group" aria-label="Show">
           ${FILTERS.map(([v, label]) => html`<button class="btn ${this.show === v ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => (this.show = v)}>${label}</button>`)}
         </div>
@@ -95,7 +99,8 @@ export class FilamentStock extends LitElement {
   }
 
   #visible(): Spool[] {
-    const q = this.filter.toLowerCase();
+    // A pasted label link (any host) filters by its code.
+    const q = (spoolKeyFromScan(this.filter.trim()) ?? this.filter).toLowerCase();
     const show = (s: Spool) =>
       this.show === 'all' ||
       (this.show === 'in-use' ? s.status === 'open' || s.status === 'sealed' : s.status === this.show);

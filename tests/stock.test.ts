@@ -4,7 +4,7 @@ import { createEmptyDocument } from '../src/core/document';
 import { loadDocument } from '../src/core/migrations';
 import type { AppDocument, FilamentPurchase, Spool } from '../src/core/model';
 import {
-  assignLabel, findSpool, isLabelCode,
+  assignLabel, findSpool, isLabelCode, spoolFromLabel, spoolKeyFromScan,
   gramsToMeters, labelGenerator, metersToGrams, remainingG, resolveTare, spoolsForPurchase,
   stockByFilament, suggestedSpoolCount, weighIn,
 } from '../src/core/stock';
@@ -119,4 +119,38 @@ describe('spool labels', () => {
     expect(findSpool(d, 'S7')).toBeUndefined();
     expect(() => assignLabel(d, 'b', 'L0042')).toThrow('already on another spool');
   });
+});
+
+describe('spoolFromLabel (onboarding)', () => {
+  let n = 0;
+  const id = () => `x${n++}`;
+  const base = { code: 'l0007', filamentId: 'pla', nominalG: 1000, spoolType: 'plastic' as const, date };
+
+  it('creates an opened spool and weighs it in one step', () => {
+    const s = spoolFromLabel(doc(), { ...base, sealed: false, grossG: 730 }, id);
+    expect(s).toMatchObject({ label: 'L0007', status: 'open' });
+    expect(remainingG(s)).toBe(600); // 730 − 130 g SUNLU spool
+  });
+
+  it('books sealed spools at full weight and leaves unweighed ones unknown', () => {
+    expect(remainingG(spoolFromLabel(doc(), { ...base, sealed: true }, id))).toBe(1000);
+    expect(remainingG(spoolFromLabel(doc(), { ...base, sealed: false }, id))).toBeNull();
+  });
+
+  it('refuses a label that is already used', () => {
+    const d = doc();
+    d.spools.push(spool({ label: 'L0007' }));
+    expect(() => spoolFromLabel(d, { ...base, sealed: true }, id)).toThrow('already on another spool');
+  });
+});
+
+describe('spoolKeyFromScan', () => {
+  it.each([
+    ['https://vinzenzhopf.github.io/3d-printing-calculator/#/spool/L0042', 'L0042'],
+    ['https://3dp.hopfs.eu/#/spool/L0042', 'L0042'],
+    ['http://localhost:5173/#/spool/S12', 'S12'],
+    [' l0007 ', 'L0007'],
+    ['4260682250131', null],
+    ['https://example.com/', null],
+  ])('%s → %s', (text, key) => expect(spoolKeyFromScan(text)).toBe(key));
 });
