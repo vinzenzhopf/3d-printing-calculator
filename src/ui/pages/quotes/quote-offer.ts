@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { QuoteResult } from '../../../core/calc/quote';
 import type { Quote } from '../../../core/model';
+import { offerPositions } from '../../../core/quotes';
 import { store } from '../../../state/store-instance';
 import { money, num } from '../../format';
 
@@ -24,8 +25,6 @@ export class QuoteOffer extends LitElement {
     const q = this.quote;
     const r = this.result;
     const customer = doc.customers.find((c) => c.id === q.customerId);
-    // Positions are shown at the shown price level (gross when prices include VAT).
-    const factor = r.net > 0 ? r.price / r.net : 1;
     const validUntil = q.date ? addDays(q.date, VALID_DAYS) : null;
 
     return html`
@@ -54,11 +53,11 @@ export class QuoteOffer extends LitElement {
         <table class="table">
           <thead><tr><th>Position</th><th class="text-end">Quantity</th><th class="text-end">Unit price</th><th class="text-end">Total</th></tr></thead>
           <tbody>
-            ${r.plates.map((p) => html`<tr>
+            ${offerPositions(r).map((p) => html`<tr>
               <td>${p.name}</td>
-              <td class="text-end">${num(p.parts)}</td>
-              <td class="text-end">${money(p.pricePerPart * factor, cur)}</td>
-              <td class="text-end">${money(p.price * factor, cur)}</td>
+              <td class="text-end">${num(p.quantity)}</td>
+              <td class="text-end">${money(p.unitPrice, cur)}</td>
+              <td class="text-end">${money(p.total, cur)}</td>
             </tr>`)}
           </tbody>
           <tfoot>

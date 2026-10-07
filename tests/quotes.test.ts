@@ -69,6 +69,16 @@ describe('quoteSummaryText', () => {
     const text = quoteSummaryText(d, q, quoteResult(d, q, asOf)!, (n) => `${n.toFixed(2)} €`);
     expect(text).toBe(['Quote #1: Bins', '', '- Bin 1x1: 6 × 2.00 € = 12.00 €', '', 'Total: 12.00 €', 'No VAT charged.'].join('\n'));
   });
+
+  it('lists the agreed part prices when the quote is priced by parts', () => {
+    const d = doc();
+    const q = createQuote(d, { id: 'q', date: asOf });
+    q.title = 'Track';
+    q.plates.push({ id: 'p', name: 'Plate 1', printerId: 'pr', printTimeMin: 60, runs: 1, parts: [{ name: 'Start', quantity: 1 }, { name: 'Middle', quantity: 3 }], filaments: [{ filamentId: 'f', weightG: 100 }] });
+    q.requiredParts = [{ name: 'Start', quantity: 1, price: 6 }, { name: 'Middle', quantity: 2, price: 4.5 }, { name: 'Spare', quantity: 0, price: 1 }];
+    const text = quoteSummaryText(d, q, quoteResult(d, q, asOf)!, (n) => `${n.toFixed(2)} €`);
+    expect(text).toBe(['Quote #1: Track', '', '- Start: 6.00 €', '- Middle: 2 × 4.50 € = 9.00 €', '', 'Total: 15.00 €'].join('\n'));
+  });
 });
 
 describe('compareQuote', () => {
