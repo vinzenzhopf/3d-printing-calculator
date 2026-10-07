@@ -1,6 +1,7 @@
 # 3D Printing Calculator
 
-**▶ Open the app: https://vinzenzhopf.github.io/3d-printing-calculator/**
+**▶ Open the app: https://vinzenzhopf.github.io/3d-printing-calculator/** (on first open, *Load demo data* shows it with a fictional workshop)\
+Short link, better for QR codes on spool labels: https://3dp.hopfs.eu/
 
 > [!WARNING]
 > **This is a vibe-coded app.** It was built largely with an AI coding assistant, with a human steering the

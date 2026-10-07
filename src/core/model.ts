@@ -77,6 +77,8 @@ export interface Settings {
   /** Business mode shows business details and numbering on quotes (PP-4). */
   businessMode: boolean;
   business: { name: string; address: string; email: string };
+  /** Demo data (core/demo) is loaded: shown with a banner and never synced. */
+  demo?: boolean;
   vat: VatSettings;
 }
 

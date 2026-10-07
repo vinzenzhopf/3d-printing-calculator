@@ -60,6 +60,12 @@ export class SyncSettings extends LitElement {
       this.testResult = null;
     };
     const complete = g.owner && g.repo && g.path && this.token;
+    if (store().doc.settings.demo) {
+      return html`<div class="alert alert-warning mb-0">
+        Demo data is loaded. Remove it first (banner at the top: "Start with my own data"), so it can't end up in your
+        repository. Then connect, and the first sync loads your data.
+      </div>`;
+    }
     return html`
       <p class="text-body-secondary">
         Keep your data in a <strong>private GitHub repository you own</strong>: works in every browser, syncs between

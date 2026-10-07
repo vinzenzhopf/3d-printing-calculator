@@ -56,6 +56,8 @@ export class SyncService extends EventTarget {
   /** Runs one sync; concurrent calls share the running one. */
   sync(): Promise<void> {
     if (this.status === 'conflict') return Promise.resolve();
+    // Demo data (core/demo) must never reach a repository.
+    if (this.store.doc.settings.demo) return Promise.resolve();
     this.#running ??= this.#sync().finally(() => (this.#running = null));
     return this.#running;
   }

@@ -1,9 +1,11 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { createEmptyDocument } from '../core/document';
 import { StoreController } from '../state/app-store';
 import { store, syncManager } from '../state/store-instance';
 import { HashRouter, ROUTES } from './router';
 import { syncConflict } from './sync-conflict';
+import { ask } from './dialogs';
 import './pages/dashboard-page';
 import './pages/settings-page';
 import './pages/printers-page';
@@ -71,6 +73,12 @@ export class AppShell extends LitElement {
         </div>
       </nav>
       <main class="container pb-5">
+        ${this.#store.store.doc.settings.demo
+          ? html`<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 py-2 mb-3 d-print-none" role="status">
+              <span><strong>Demo data.</strong> Everything here is fictional; look around and change what you like. It is never synced.</span>
+              <button class="btn btn-sm btn-warning ms-auto" @click=${this.#leaveDemo}>Start with my own data</button>
+            </div>`
+          : nothing}
         ${syncConflict()}
         ${this.#pullNotice
           ? html`<div class="alert alert-info alert-dismissible py-2 mb-3 d-print-none" role="status">
@@ -101,6 +109,12 @@ export class AppShell extends LitElement {
             ?disabled=${!canSync} @click=${() => void s.sync()}>${s.status === 'syncing' ? '…' : '⟳'}</button>`
         : nothing}`;
   }
+
+  #leaveDemo = async () => {
+    if (!(await ask('Remove the demo data and start with an empty app?', { ok: 'Remove demo data', danger: true }))) return;
+    await this.#store.store.replaceDocument(createEmptyDocument());
+    location.hash = '#/dashboard';
+  };
 
   #page() {
     switch (this.#router.path) {

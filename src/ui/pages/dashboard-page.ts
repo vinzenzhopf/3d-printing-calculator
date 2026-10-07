@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { createDemoDocument, isEmptyDocument } from '../../core/demo';
 import { formatDuration } from '../../core/duration';
 import type { AppDocument } from '../../core/model';
 import { maintenanceStatus } from '../../core/maintenance';
@@ -30,6 +31,8 @@ export class DashboardPage extends LitElement {
 
   override render() {
     const doc = this.#doc;
+    // A fresh browser without sync: welcome instead of an all-zero dashboard.
+    if (isEmptyDocument(doc) && !syncManager().config) return this.#welcome();
     const stockKg = [...stockByFilament(doc).values()].reduce((sum, s) => sum + s.knownG, 0) / 1000;
     const counts: [string, string, string][] = [
       ['Quotes', String(doc.quotes.length), '#/quotes'],
@@ -61,10 +64,7 @@ export class DashboardPage extends LitElement {
     const doc = this.#doc;
     const m = syncManager();
     if (m.service && !m.locked) return nothing; // synced data has its own history
-    const hasData = doc.quotes.length + doc.filaments.length + doc.printers.length > 0;
-    if (!hasData) {
-      return html`<div class="alert alert-info">Welcome! Start in <a href="#/settings/printers">Settings → Printers</a> and <a href="#/filaments">Filaments</a>, or import data in <a href="#/settings/data">Settings</a>.</div>`;
-    }
+    if (doc.settings.demo || isEmptyDocument(doc)) return nothing;
     const last = lastBackup();
     const days = last ? Math.floor((Date.now() - last.getTime()) / 86_400_000) : null;
     if (days !== null && days < BACKUP_WARN_DAYS) return nothing;
@@ -73,6 +73,52 @@ export class DashboardPage extends LitElement {
       <button class="btn btn-sm btn-warning ms-auto" @click=${() => { downloadBackup(doc); this.requestUpdate(); }}>Export now</button>
     </div>`;
   }
+
+  #welcome() {
+    const steps: [string, string, string][] = [
+      ['Printers', 'Add your printers with their price and power use.', '#/settings/printers'],
+      ['Filaments', 'Build your catalog: brands, product lines and colors.', '#/filaments'],
+      ['Purchases', 'Log what you bought; prices per kg follow from it.', '#/filaments/purchases'],
+      ['Quotes', 'Calculate a print from slicer time and grams.', '#/quotes'],
+    ];
+    return html`
+      <section class="p-4 p-md-5 mb-4 bg-body rounded-3 border">
+        <h1 class="display-6 fw-semibold">Welcome to 3D Print Calc</h1>
+        <p class="lead mb-0">
+          Know what a print really costs: filament, energy, machine wear and your time. Keep track of spools,
+          prints and quotes, in your browser and optionally synced through your own GitHub repository.
+        </p>
+      </section>
+      <div class="row g-3">
+        <div class="col-lg-4"><section class="card card-body h-100">
+          <h2 class="h5">Look around first</h2>
+          <p class="text-body-secondary">Load a fictional workshop: two printers, a filament catalog with labeled spools,
+            a year of prints, customers and quotes. Nothing is synced, and you can clear it any time.</p>
+          <button class="btn btn-primary btn-lg mt-auto" @click=${this.#loadDemo}>Load demo data</button>
+        </section></div>
+        <div class="col-lg-4"><section class="card card-body h-100">
+          <h2 class="h5">Already using it?</h2>
+          <p class="text-body-secondary">Connect the private GitHub repository that holds your data, and this device
+            loads it. Or import a backup file you exported.</p>
+          <div class="d-flex flex-wrap gap-2 mt-auto">
+            <a class="btn btn-outline-primary btn-lg" href="#/settings/data">Set up sync</a>
+            <a class="btn btn-link" href="#/settings/data">Import a backup</a>
+          </div>
+        </section></div>
+        <div class="col-lg-4"><section class="card card-body h-100">
+          <h2 class="h5">Start from scratch</h2>
+          <ol class="ps-3 mb-3">
+            ${steps.map(([title, text, href]) => html`<li class="mb-1"><a href=${href}>${title}</a>: <span class="text-body-secondary">${text}</span></li>`)}
+          </ol>
+          <a class="btn btn-outline-secondary btn-lg mt-auto" href="#/settings/printers">Add the first printer</a>
+        </section></div>
+      </div>
+    `;
+  }
+
+  #loadDemo = async () => {
+    await this.#store.store.replaceDocument(createDemoDocument(today()));
+  };
 
   #openQuotes() {
     const doc = this.#doc;
