@@ -141,6 +141,13 @@ describe('pricing steps', () => {
     expect(calculateQuote(doc({ markup: 1 }), quote({ plates, requiredParts: [{ name: 'Start', quantity: 1 }] }), asOf).explain?.target).toBeNull();
   });
 
+  it('counts no parts for a plate without filament', () => {
+    const empty = { id: 'e', name: 'Plate 2', printerId: 'pr', printTimeMin: 0, runs: 1, filaments: [] };
+    const r = calculateQuote(doc(), quote({ plates: [...quote().plates, empty], targetPrice: undefined }), asOf);
+    expect(r.plates.map((p) => p.parts)).toEqual([4, 0]);
+    expect(r.explain?.parts).toBe(4);
+  });
+
   it('explains each cost with its inputs', () => {
     const d = doc({ failureAllowance: 0.1 });
     d.printers[0]!.purgeWastePerPlateG = 10;

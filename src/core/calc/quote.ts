@@ -202,7 +202,8 @@ function calculate(doc: AppDocument, quote: Quote, profile: PricingProfile, asOf
       },
     );
     warnings.push(...cost.warnings.map((w) => `${plate.name}: ${w}`));
-    const parts = Math.max(plate.runs, 0) * partsPerRun(plate);
+    // A plate without filament (just added, not filled in yet) prints nothing.
+    const parts = plate.filaments.length > 0 ? Math.max(plate.runs, 0) * partsPerRun(plate) : 0;
     const runHours = (plate.printTimeMin / 60) * Math.max(plate.runs, 0);
     const explain: PlateExplain = {
       printer: printer.name,
