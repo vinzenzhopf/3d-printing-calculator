@@ -17,10 +17,9 @@ private GitHub repository.
 
 ## Status
 
-Early development. Quotes (multi-plate, multi-filament, pricing profiles, freezing, printable offer), customers,
-printers with machine cost per hour, the filament catalog with purchases and price list, and JSON export/import
-work, as do spool stock and weigh-ins with empty-spool presets, sync via a private GitHub repository, and offline
-use (installable as an app). See the [milestones](docs/implementation-plan.md#8-milestones).
+Beta: in daily use for a small print workshop, with real data, sync and print detection. The data format can still
+change; updates migrate it automatically, but keep backups. Open: a German UI. See the
+[milestones](docs/implementation-plan.md#8-milestones).
 
 ## Features
 
@@ -31,16 +30,20 @@ use (installable as an app). See the [milestones](docs/implementation-plan.md#8-
 - Filament price based on recent purchases or a manual price list
 - Machine cost per hour, including a reserve for your next printer; maintenance reminders by print hours
 - Filament price history per product line
-- Inventory: manufacturers, product lines, colors, purchases, spools, weigh-ins with empty-spool presets, low-stock list
-- Printable QR spool labels (PDF for common A4 label sheets): scan a spool with the phone to weigh it
-- Print log: deducts filament from spools, tracks printer hours and your real failure rate; prints can be detected automatically via [Home Assistant](docs/home-assistant.md) (OctoPrint)
+- Inventory: manufacturers, product lines, colors, purchases (incl. bundles and big spools), spools with their kind of
+  empty spool, weigh-ins, low-stock list, and a color overview for picking filament
+- Printable QR spool labels (PDF for common A4 label sheets): scan a spool with the phone camera to set it up or weigh it
+- Print log: deducts filament from spools, tracks printer hours and your real failure rate; prints can be detected
+  automatically via [Home Assistant](docs/home-assistant.md) (OctoPrint), and past prints imported from OctoPrint's history
+- Statistics: spend, prints, hours and filament per month, by material, color and brand, next to the printers' own counters
+- Demo data to try everything without entering your own
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
 - Works offline and can be installed as an app
 
 ## Your data
 
-Everything is stored in your browser (IndexedDB). Use **Settings → Data → Export** for backups. To use the app on
-several devices, connect **Settings → Sync** to a private GitHub repository you own:
+Everything is stored in your browser (IndexedDB). Use **Settings → Data & sync → Export** for backups. To use the app
+on several devices, connect it there to a private GitHub repository you own:
 
 1. Create an empty **private** repository.
 2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with access to only that
@@ -75,6 +78,11 @@ Every push to `main` is tested and deployed to GitHub Pages by
 - [Implementation plan](docs/implementation-plan.md)
 - [Analysis of the original Excel model](docs/excel-analysis.md)
 - [Detect prints with Home Assistant](docs/home-assistant.md)
+
+## Feedback
+
+Found a bug or have an idea? [Open an issue](https://github.com/vinzenzhopf/3d-printing-calculator/issues/new).
+Please add the version from **Settings → Data & sync → About**.
 
 ## License
 
