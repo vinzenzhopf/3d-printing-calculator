@@ -223,6 +223,8 @@ describe('spoolKeyFromScan', () => {
   it.each([
     ['https://vinzenzhopf.github.io/3d-printing-calculator/#/spool/L0042', 'L0042'],
     ['https://print.example.com/#/spool/L0042', 'L0042'],
+    ['https://print.example.com/#/s/L0043', 'L0043'],
+    ['https://print.example.com/#/settings/L0044', null],
     ['http://localhost:5173/#/spool/S12', 'S12'],
     [' l0007 ', 'L0007'],
     ['4260682250131', null],

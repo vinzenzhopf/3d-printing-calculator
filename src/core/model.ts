@@ -74,6 +74,8 @@ export interface Settings {
   /** Label sheet used for printing: a preset id from core/labels, or "custom" with `labelCustomLayout`. */
   labelLayoutId?: string;
   labelCustomLayout?: import('./labels').LabelLayout;
+  /** What the QR code on spool labels holds: a link the phone camera opens (default), or just the code. */
+  labelQrContent?: 'link' | 'code';
   /** Business mode shows business details and numbering on quotes (PP-4). */
   businessMode: boolean;
   business: { name: string; address: string; email: string };

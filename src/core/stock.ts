@@ -243,12 +243,13 @@ export function spoolFromLabel(doc: AppDocument, input: LabelSpoolInput, newId: 
 }
 
 /**
- * The spool key in a scanned code: our label links (".../#/spool/L0042") or a
- * bare label code. null for anything else (e.g. a product barcode → use as search).
+ * The spool key in a scanned code: our label links (".../#/s/L0042", older
+ * labels ".../#/spool/L0042") or a bare label code. null for anything else
+ * (e.g. a product barcode → use as search).
  */
 export function spoolKeyFromScan(text: string): string | null {
   const t = text.trim();
-  const link = /#\/spool\/([^/?#\s]+)/.exec(t);
+  const link = /#\/s(?:pool)?\/([^/?#\s]+)/.exec(t);
   if (link) return decodeURIComponent(link[1]!);
   return isLabelCode(t) ? t.toUpperCase() : null;
 }

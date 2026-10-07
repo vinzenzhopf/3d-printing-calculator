@@ -66,7 +66,7 @@ export class AppShell extends LitElement {
           <ul class="navbar-nav app-nav">
             ${ROUTES.map(
               (r) => html`<li class="nav-item">
-                <a class="nav-link ${this.#router.path === r.path || (this.#router.path === 'spool' && r.path === 'filaments') ? 'active' : ''}" href="#/${r.path}">${r.label}</a>
+                <a class="nav-link ${this.#router.path === r.path || (['spool', 's'].includes(this.#router.path) && r.path === 'filaments') ? 'active' : ''}" href="#/${r.path}">${r.label}</a>
               </li>`,
             )}
           </ul>
@@ -125,6 +125,7 @@ export class AppShell extends LitElement {
       case 'quotes':
         return html`<quotes-page .sub=${this.#router.sub}></quotes-page>`;
       case 'spool':
+      case 's': // short form used in label QR codes
         return html`<spool-page .key=${this.#router.sub}></spool-page>`;
       case 'log':
         return html`<print-log-page></print-log-page>`;

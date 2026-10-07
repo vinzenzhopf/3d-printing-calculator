@@ -97,7 +97,17 @@ export class SpoolSetup extends LitElement {
           <div class="col-6 col-md-3">${numberField('First number', first, (v) => (this.first = Math.max(1, Math.round(v))), { min: 1, step: 1, help: `next free: ${this.#nextNumber()}` })}</div>
           <div class="col-6 col-md-3">${textField('Caption', this.caption, (v) => (this.caption = v))}</div>
         </div>
-        ${textField('Link in the QR code', this.baseUrl, (v) => (this.baseUrl = v || `${location.origin}${location.pathname}`), { help: 'The app address the phone opens. Keep the default unless you host the app elsewhere.' })}
+        ${selectField('QR code holds', doc.settings.labelQrContent ?? 'link', [
+          { value: 'link', label: 'Link: the phone camera opens the app' },
+          { value: 'code', label: 'Code only: smaller, scan with the app (📷 Scan)' },
+        ], (v) => void this.#update((d) => (d.settings.labelQrContent = v as 'link' | 'code')), {
+          help: (doc.settings.labelQrContent ?? 'link') === 'link'
+            ? 'Any camera app opens the spool directly. The link depends on where the app is hosted.'
+            : 'The smallest, most robust code, independent of any address. Open the app and use 📷 Scan.',
+        })}
+        ${(doc.settings.labelQrContent ?? 'link') === 'link'
+          ? textField('Link in the QR code', this.baseUrl, (v) => (this.baseUrl = v || `${location.origin}${location.pathname}`), { help: 'The app address the phone opens. Keep the default unless you host the app elsewhere; a short address makes a smaller QR code.' })
+          : nothing}
         ${switchField('Test print: draw label outlines', this.outlines, (v) => (this.outlines = v), { help: 'Print on plain paper and hold it against a label sheet to check the alignment. Set the printer to 100 % / actual size.' })}
         <div class="d-flex flex-wrap gap-3 align-items-center">
           ${this.#preview(layout, labelCode(first))}
@@ -128,8 +138,10 @@ export class SpoolSetup extends LitElement {
     </svg>`;
   }
 
+  /** QR content for a label: a short link (`…#/s/L0042`) or just the code. */
   #url(code: string): string {
-    return `${this.baseUrl.replace(/#.*$/, '')}#/spool/${code}`;
+    if (this.#doc.settings.labelQrContent === 'code') return code;
+    return `${this.baseUrl.replace(/#.*$/, '')}#/s/${code}`;
   }
 
   #download(layout: LabelLayout, first: number, count: number) {

@@ -17,7 +17,7 @@ export const ROUTES: Route[] = [
 ];
 
 /** Routes without a navigation entry, e.g. `#/spool/L0042` (opened from a printed label's QR code). */
-export const HIDDEN_ROUTES = ['spool'];
+export const HIDDEN_ROUTES = ['spool', 's'];
 
 /** Pages that moved, so old links and bookmarks keep working. */
 const MOVED: Record<string, string> = { printers: 'settings/printers' };
