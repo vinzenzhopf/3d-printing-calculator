@@ -197,7 +197,7 @@ export class SettingsPage extends LitElement {
         <div class="d-flex flex-wrap gap-2 mb-3">
           <a class="btn btn-outline-primary" href=${repo} target="_blank" rel="noopener noreferrer">Source code</a>
           <a class="btn btn-outline-primary" href="${repo}/issues/new" target="_blank" rel="noopener noreferrer">Report a problem or idea</a>
-          <a class="btn btn-link" href="${repo}/blob/main/docs/home-assistant.md" target="_blank" rel="noopener noreferrer">Home Assistant guide</a>
+          <a class="btn btn-link" href="${repo}/blob/main/docs/import-prints.md" target="_blank" rel="noopener noreferrer">Import prints guide</a>
           <a class="btn btn-link" href="${repo}/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a>
         </div>
         <div class="small text-body-secondary">

@@ -1,9 +1,11 @@
-# Detect prints with Home Assistant (OctoPrint)
+# Detect prints with Home Assistant
 
-Home Assistant watches OctoPrint and, when a print ends, writes one small JSON file into the `print-inbox/`
-folder of your **sync repository**. The app shows these under **Print log → Detected prints**: *Add…* opens a
-pre-filled print log entry (date, printer, name, time, result; filaments and grams from a matching quote plate),
-*Dismiss* removes it. Either way the inbox file is deleted.
+Step-by-step setup for the [live print detection](import-prints.md#live-detect-prints-as-they-finish): Home Assistant
+writes one small JSON file per finished print into the `print-inbox/` folder of your **sync repository**, and the app
+lists them under **Print log → Detected prints**. How it works and what you do in the app is described
+[there](import-prints.md#live-detect-prints-as-they-finish).
+
+The setup below uses OctoPrint; [other printers](#other-printers) work the same way.
 
 Requirements: the app's GitHub sync is set up (the inbox lives in the same private repository), and the
 [OctoPrint integration](https://www.home-assistant.io/integrations/octoprint/) is configured in Home Assistant.
@@ -144,20 +146,24 @@ Notes:
 - Printing the same file several times creates one inbox file (and one log entry) per print. The inbox file is
   named after the end time and printer, not after the G-code file.
 - Inbox file format (version 1): `{"version": 1, "source": "...", "printer": "<inbox key>", "file": "...",
-  "startedAt": "<ISO>", "finishedAt": "<ISO>", "durationMin": 260, "result": "success|failed|cancelled"}`.
-  Any other tool can write the same format.
+  "startedAt": "<ISO>", "finishedAt": "<ISO>", "durationMin": 260, "result": "success|failed|cancelled"}`, optionally
+  `"grams": 87.5` and `"material": "PETG"` when the source knows the filament used. Any other tool can write the
+  same format.
 
-## Importing past prints from OctoPrint
+## Other printers
 
-OctoPrint keeps a history of every print per uploaded file in `~/.octoprint/uploads/.metadata.json` (files you
-deleted in OctoPrint are gone, and prints from the printer's SD card are not in it). To fill the print log with it:
+The automation only needs a sensor whose state changes when a print starts and ends, plus the job name. Adjust the
+entity IDs and state lists to your integration (check them under *Developer tools → States* during a print):
 
-1. Copy the file from the OctoPrint host, e.g. `scp pi@octopi.local:~/.octoprint/uploads/.metadata.json .`
-2. Clone your data repository, then run
-   `python tools/import_octoprint_history.py .metadata.json <data-repo>/3d-printing-calculator.json --printer <printer id>`
-   (`--dry-run` first shows what would be added). Commit and push the data file.
+- **Prusa MK4 / CORE One / XL (PrusaLink):** the built-in
+  [PrusaLink integration](https://www.home-assistant.io/integrations/prusalink/) has a printer state sensor
+  (`printing` while printing; `finished`, `stopped` or `error` at the end) and a job filename sensor. Use those as
+  the start/end triggers and the file; map `stopped` to *cancelled* and `error` to *failed*.
+- **Bambu Lab:** the community integration [ha-bambulab](https://github.com/greghesp/ha-bambulab) has a print status
+  sensor (`running` while printing; `finish` or `failed` at the end), a task name sensor and a **print weight** sensor
+  (grams). Send the weight as `grams` (and the material as `material`, if you like) in the REST command, then the
+  app pre-fills the filament used.
+- **Klipper (Moonraker):** use the [Moonraker integration](https://github.com/marcolivierarsenault/moonraker-home-assistant)
+  the same way, or simply [import its history](import-prints.md) now and then.
 
-Each print gets date, model name, print time and result (OctoPrint does not tell failed from cancelled: unsuccessful
-prints are logged as cancelled). The grams come from the slicer analysis and the material in the file name, stored as
-filament of unknown color: they count in the statistics, not in the stock. Prints already in the log are skipped, so
-the import can be repeated later. Close the app on other devices (or sync them first) before pushing.
+Give each printer its own *Inbox key* (Settings → Printers → Edit) and use it as `printer` and in the file `name`.

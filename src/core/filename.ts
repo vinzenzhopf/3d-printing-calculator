@@ -1,4 +1,13 @@
+import type { BaseMaterial } from './model';
 import { parseSlicerDuration } from './slicer';
+
+const MATERIALS: BaseMaterial[] = ['PLA', 'PETG', 'ABS', 'ASA', 'TPU'];
+
+/** Material named in a file name or text ("…_PETG_MK3S_…"), if any. */
+export function materialIn(text: string): BaseMaterial | undefined {
+  const tokens = new Set(text.toUpperCase().split(/[^A-Z0-9+]+/));
+  return MATERIALS.find((m) => tokens.has(m));
+}
 
 /**
  * Print facts encoded in a G-code file name by the slicer's output template, e.g.

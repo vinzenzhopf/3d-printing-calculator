@@ -1,5 +1,5 @@
-import { parseFileName } from './filename';
-import type { AppDocument, Id, IsoDate, PrintJob } from './model';
+import { materialIn, parseFileName } from './filename';
+import type { AppDocument, BaseMaterial, Id, IsoDate, PrintJob } from './model';
 import { jobFromPlate } from './print-log';
 
 /**
@@ -16,6 +16,9 @@ export interface InboxEntry {
   finishedAt: string;
   durationMin: number | null;
   result: PrintJob['result'];
+  /** Filament used, when the source knows it (e.g. Bambu Lab's print weight). */
+  grams?: number;
+  material?: BaseMaterial;
 }
 
 const RESULTS = new Set(['success', 'failed', 'cancelled']);
@@ -38,6 +41,8 @@ export function parseInboxEntry(path: string, raw: unknown): InboxEntry | null {
       ? Math.round(duration)
       : startedAt ? Math.round((Date.parse(finishedAt) - Date.parse(startedAt)) / 60000) : null,
     result: RESULTS.has(r.result as string) ? (r.result as PrintJob['result']) : 'success',
+    ...(Number(r.grams) > 0 ? { grams: Math.round(Number(r.grams) * 10) / 10 } : {}),
+    ...(typeof r.material === 'string' && materialIn(r.material) ? { material: materialIn(r.material)! } : {}),
   };
 }
 
@@ -62,7 +67,9 @@ export function jobFromInbox(doc: AppDocument, entry: InboxEntry, opts: { id: Id
     doc.printers.find((p) => p.status === 'active') ??
     doc.printers[0];
   const fileName = printName(entry.file);
-  const info = parseFileName(entry.file);
+  const parsed = parseFileName(entry.file);
+  // Grams in the file name are the slicer's exact value; else what the source reported.
+  const info = parsed.grams === undefined && entry.grams !== undefined ? { ...parsed, grams: entry.grams } : parsed;
   const name = info.base || fileName;
   const date = opts.localDate(entry.finishedAt);
 
@@ -98,5 +105,23 @@ export function jobFromInbox(doc: AppDocument, entry: InboxEntry, opts: { id: Id
     filaments,
     note: [`Detected by ${entry.printer || 'printer'}${entry.startedAt ? `, started ${entry.startedAt}` : ''}`, fileName !== name ? `file ${fileName}` : '', slicer]
       .filter(Boolean).join(' · '),
+  };
+}
+
+/**
+ * A print log entry for "Add all": like `jobFromInbox`, but grams without a chosen
+ * filament are kept as filament of unknown color (with the material, if known),
+ * so the entry is complete without editing.
+ */
+export function jobFromInboxAsIs(doc: AppDocument, entry: InboxEntry, opts: { id: Id; localDate: (iso: string) => IsoDate }): PrintJob {
+  const job = jobFromInbox(doc, entry, opts);
+  const open = job.filaments.filter((f) => !f.filamentId);
+  if (open.length === 0) return job;
+  const grams = open.reduce((sum, f) => sum + f.grams, 0);
+  const material = entry.material ?? materialIn(entry.file);
+  return {
+    ...job,
+    filaments: job.filaments.filter((f) => f.filamentId),
+    ...(grams > 0 ? { untrackedFilament: { grams, ...(material ? { material } : {}) } } : {}),
   };
 }

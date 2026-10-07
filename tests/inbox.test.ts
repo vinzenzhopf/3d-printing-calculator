@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyDocument } from '../src/core/document';
-import { jobFromInbox, parseInboxEntry, printName } from '../src/core/inbox';
+import { jobFromInbox, jobFromInboxAsIs, parseInboxEntry, printName } from '../src/core/inbox';
 import type { AppDocument } from '../src/core/model';
 
 const file = 'flexi_75_segment_0.6n_0.3mm_PLA_MK3S_4h17m.gcode';
@@ -81,5 +81,24 @@ describe('printName', () => {
   it('strips folders and slicer extensions', () => {
     expect(printName('folder/part.gcode.3mf')).toBe('part');
     expect(printName('part.bgcode')).toBe('part');
+  });
+});
+
+describe('grams from the source and "Add all"', () => {
+  const bambu = { ...raw, source: 'home-assistant/bambulab', printer: 'a1', file: 'Lamp shade.3mf', grams: 87.46, material: 'petg' };
+
+  it('reads optional grams and material', () => {
+    expect(parseInboxEntry('b', bambu)).toMatchObject({ grams: 87.5, material: 'PETG' });
+    expect(parseInboxEntry('b', { ...bambu, grams: 0, material: 'wood' })).not.toHaveProperty('grams');
+  });
+
+  it('uses the source grams when the file name has none, and keeps them as unknown color for "Add all"', () => {
+    const entry = parseInboxEntry('b', bambu)!;
+    expect(jobFromInbox(doc(), entry, { id: 'j', localDate }).filaments).toEqual([{ filamentId: '', grams: 87.5 }]);
+    const job = jobFromInboxAsIs(doc(), entry, { id: 'j', localDate });
+    expect(job.filaments).toEqual([]);
+    expect(job.untrackedFilament).toEqual({ grams: 87.5, material: 'PETG' });
+    // Without any grams there is nothing to keep.
+    expect(jobFromInboxAsIs(doc(), parseInboxEntry('p', raw)!, { id: 'j', localDate }).untrackedFilament).toBeUndefined();
   });
 });

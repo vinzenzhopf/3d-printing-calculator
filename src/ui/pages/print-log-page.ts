@@ -8,7 +8,8 @@ import { StoreController } from '../../state/app-store';
 import { store, syncManager } from '../../state/store-instance';
 import type { InboxItem } from '../../state/sync-manager';
 import { parseFileName } from '../../core/filename';
-import { jobFromInbox } from '../../core/inbox';
+import { jobFromInbox, jobFromInboxAsIs } from '../../core/inbox';
+import './print-import-panel';
 import { cellNumber, cellSelect, cellText, type Option } from '../fields';
 import { newId, num, percent, today } from '../format';
 import { pickFilament } from '../filament-picker';
@@ -40,6 +41,8 @@ export class PrintLogPage extends LitElement {
   @state() private inboxError = '';
   /** Inbox item the current draft came from; removed from the repo when saved. */
   @state() private fromInbox: InboxItem | null = null;
+  @state() private importing = false;
+  @state() private addingAll = '';
 
   protected override createRenderRoot() {
     return this;
@@ -67,12 +70,14 @@ export class PrintLogPage extends LitElement {
     return html`
       <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
         <h1 class="h3 mb-0 me-auto">Print log</h1>
+        <button class="btn btn-outline-primary" @click=${() => (this.importing = !this.importing)}>${this.importing ? 'Close import' : 'Import prints…'}</button>
         <button class="btn btn-primary" @click=${this.#newDraft}>${this.draft ? 'Discard' : 'Log a print'}</button>
       </div>
       <p class="small text-body-secondary">
         Logged prints take filament from the chosen spools, add to the printer's hour counter, and show your real
         failure rate. Tip: use "Log run" on a quote plate to pre-fill everything.
       </p>
+      ${this.importing ? html`<print-import-panel></print-import-panel>` : nothing}
       ${this.#inboxSection()}
       ${this.draft ? this.#form(this.draft) : nothing}
       ${jobs.length
@@ -198,6 +203,22 @@ export class PrintLogPage extends LitElement {
     }
   }
 
+  /** Logs every detected print as it is and removes its inbox file. */
+  async #addAll(localDate: (iso: string) => string) {
+    const items = this.inbox.filter((i) => i.entry);
+    if (!(await ask(`Add all ${items.length} detected prints to the log as they are? Filament without a chosen color is kept by weight; you can edit each entry later.`, { ok: `Add ${items.length} prints` }))) return;
+    const jobs = items.map((i) => jobFromInboxAsIs(this.#doc, i.entry!, { id: newId(), localDate }));
+    await this.#store.store.update((d) => {
+      for (const job of jobs) addJob(d, job, newId);
+    });
+    let n = 0;
+    for (const item of items) {
+      this.addingAll = `Cleaning up the inbox… ${++n}/${items.length}`;
+      await this.#removeInbox(item, `Logged print ${item.entry!.file}`);
+    }
+    this.addingAll = '';
+  }
+
   #inboxSection() {
     if (!syncManager().inboxAvailable) return nothing;
     const items = this.inbox;
@@ -212,6 +233,10 @@ export class PrintLogPage extends LitElement {
     return html`<section class="card mb-3 border-info">
       <div class="card-header d-flex align-items-center gap-2">
         <strong class="me-auto">Detected prints${items.length ? ` (${items.length})` : ''}</strong>
+        ${this.addingAll ? html`<span class="small text-body-secondary">${this.addingAll}</span>` : nothing}
+        ${items.some((i) => i.entry) && !this.addingAll
+          ? html`<button class="btn btn-sm btn-outline-primary" title="Log every detected print as it is; filament without a color is kept by weight" @click=${() => void this.#addAll(localDate)}>Add all</button>`
+          : nothing}
         <button class="btn btn-sm btn-link" ?disabled=${this.inboxState === 'loading'} @click=${() => void this.#loadInbox()}>${this.inboxState === 'loading' ? 'Loading…' : 'Refresh'}</button>
       </div>
       ${this.inboxState === 'error' ? html`<div class="alert alert-danger m-2 mb-0">${this.inboxError}</div>` : nothing}
