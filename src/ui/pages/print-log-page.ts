@@ -22,6 +22,10 @@ const RESULTS: Option[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+/** Rows shown before "Show all", so a long imported history stays quick. */
+const LIST_LIMIT = 100;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
 let pendingDraft: PrintJob | null = null;
 
 /** Opens the print log with a pre-filled job (e.g. from a quote plate). */
@@ -42,6 +46,9 @@ export class PrintLogPage extends LitElement {
   /** Inbox item the current draft came from; removed from the repo when saved. */
   @state() private fromInbox: InboxItem | null = null;
   @state() private importing = false;
+  /** List filters: text, printer, result, period ("2026" or "2026-10"). */
+  @state() private filter = { text: '', printerId: '', result: '', period: '' };
+  @state() private showAll = false;
   @state() private addingAll = '';
 
   protected override createRenderRoot() {
@@ -63,10 +70,18 @@ export class PrintLogPage extends LitElement {
 
   override render() {
     const doc = this.#doc;
-    const jobs = [...doc.printJobs].sort((a, b) => b.date.localeCompare(a.date));
+    const all = [...doc.printJobs].sort((a, b) => b.date.localeCompare(a.date));
     const printerName = new Map(doc.printers.map((p) => [p.id, p.name]));
     const quoteNumber = new Map(doc.quotes.map((q) => [q.id, q.number]));
+    const f = this.filter;
+    const q = f.text.trim().toLowerCase();
+    const jobs = all.filter((j) =>
+      (!f.printerId || j.printerId === f.printerId) &&
+      (!f.result || (f.result === 'unsuccessful' ? j.result !== 'success' : j.result === f.result)) &&
+      (!f.period || j.date.startsWith(f.period)) &&
+      (!q || `${j.name} ${j.note ?? ''}`.toLowerCase().includes(q)));
     const stats = jobStats(jobs);
+    const shown = this.showAll ? jobs : jobs.slice(0, LIST_LIMIT);
     return html`
       <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
         <h1 class="h3 mb-0 me-auto">Print log</h1>
@@ -80,12 +95,13 @@ export class PrintLogPage extends LitElement {
       ${this.importing ? html`<print-import-panel></print-import-panel>` : nothing}
       ${this.#inboxSection()}
       ${this.draft ? this.#form(this.draft) : nothing}
+      ${all.length ? this.#filters(all) : nothing}
       ${jobs.length
-        ? html`<p class="small">${stats.jobs} prints · ${formatDuration(stats.hours * 60)} h · ${num(stats.filamentG / 1000, 2)} kg filament · failed/cancelled: ${stats.failureRate === null ? '–' : percent(stats.failureRate, 1)} of print time</p>
+        ? html`<p class="small">${stats.jobs} prints${jobs.length < all.length ? ` (of ${all.length})` : ''} · ${formatDuration(stats.hours * 60)} h · ${num(stats.filamentG / 1000, 2)} kg filament · failed/cancelled: ${stats.failureRate === null ? '–' : percent(stats.failureRate, 1)} of print time</p>
             <div class="table-responsive"><table class="table table-sm align-middle">
               <thead><tr><th>Date</th><th>Print</th><th>Printer</th><th>Time</th><th>Filament</th><th>Result</th><th></th></tr></thead>
               <tbody>
-                ${jobs.map((j) => html`<tr class=${j.result === 'success' ? '' : 'table-warning'}>
+                ${shown.map((j) => html`<tr class=${j.result === 'success' ? '' : 'table-warning'}>
                   <td class="text-nowrap">${j.date}</td>
                   <td>${j.name}${j.quoteId ? html` <a class="small" href="#/quotes/${j.quoteId}">#${quoteNumber.get(j.quoteId) ?? '?'}</a>` : nothing}${j.note ? html`<div class="small text-body-secondary">${j.note}</div>` : nothing}</td>
                   <td class="small">${printerName.get(j.printerId) ?? '?'}</td>
@@ -100,9 +116,48 @@ export class PrintLogPage extends LitElement {
                   </td>
                 </tr>`)}
               </tbody>
-            </table></div>`
-        : this.draft ? nothing : html`<p class="text-body-secondary">No prints logged yet.</p>`}
+            </table></div>
+            ${jobs.length > shown.length
+              ? html`<button class="btn btn-sm btn-outline-secondary" @click=${() => (this.showAll = true)}>Show all ${jobs.length} prints</button>`
+              : nothing}`
+        : all.length
+          ? html`<p class="text-body-secondary">No prints match the filter.</p>`
+          : this.draft ? nothing : html`<p class="text-body-secondary">No prints logged yet.</p>`}
     `;
+  }
+
+  #filters(all: PrintJob[]) {
+    const doc = this.#doc;
+    const f = this.filter;
+    const set = (patch: Partial<typeof f>) => {
+      this.filter = { ...f, ...patch };
+      this.showAll = false;
+    };
+    const used = new Set(all.map((j) => j.printerId));
+    const years = [...new Set(all.map((j) => j.date.slice(0, 4)))].sort().reverse();
+    const months = [...new Set(all.map((j) => j.date.slice(0, 7)))].sort().reverse();
+    const active = f.text || f.printerId || f.result || f.period;
+    return html`<div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <input class="form-control form-control-sm" style="max-width: 14rem" type="search" placeholder="Search (name, file)…" aria-label="Search prints"
+        .value=${f.text} @input=${(e: Event) => set({ text: (e.target as HTMLInputElement).value })} />
+      <select class="form-select form-select-sm w-auto" aria-label="Printer" @change=${(e: Event) => set({ printerId: (e.target as HTMLSelectElement).value })}>
+        <option value="" ?selected=${!f.printerId}>All printers</option>
+        ${doc.printers.filter((p) => used.has(p.id)).map((p) => html`<option value=${p.id} ?selected=${f.printerId === p.id}>${p.name}</option>`)}
+      </select>
+      <select class="form-select form-select-sm w-auto" aria-label="Result" @change=${(e: Event) => set({ result: (e.target as HTMLSelectElement).value })}>
+        <option value="" ?selected=${!f.result}>All results</option>
+        <option value="success" ?selected=${f.result === 'success'}>Successful</option>
+        <option value="unsuccessful" ?selected=${f.result === 'unsuccessful'}>Failed or cancelled</option>
+      </select>
+      <select class="form-select form-select-sm w-auto" aria-label="Period" @change=${(e: Event) => set({ period: (e.target as HTMLSelectElement).value })}>
+        <option value="" ?selected=${!f.period}>All time</option>
+        ${years.map((y) => html`<optgroup label=${y}>
+          <option value=${y} ?selected=${f.period === y}>${y} (whole year)</option>
+          ${months.filter((m) => m.startsWith(y)).map((m) => html`<option value=${m} ?selected=${f.period === m}>${MONTH_NAMES[Number(m.slice(5)) - 1]} ${y}</option>`)}
+        </optgroup>`)}
+      </select>
+      ${active ? html`<button class="btn btn-sm btn-link" @click=${() => set({ text: '', printerId: '', result: '', period: '' })}>Clear filters</button>` : nothing}
+    </div>`;
   }
 
   #form(job: PrintJob) {
