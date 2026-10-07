@@ -4,7 +4,7 @@ import { marginFromMarkup } from '../core/calc/pricing';
 import type { AppDocument, PricingProfile } from '../core/model';
 import { StoreController } from '../state/app-store';
 import { store } from '../state/store-instance';
-import { numberField, switchField, textField } from './fields';
+import { cellNumber, numberField, switchField, textField } from './fields';
 import { newId, percent } from './format';
 
 /** Fractions are stored (0.2), percentages are shown (20). */
@@ -63,10 +63,32 @@ export class PricingProfilesEditor extends LitElement {
             ${numberField('Labor per plate run', p.laborPerPlateMin ?? 0, (v) => set((x) => (x.laborPerPlateMin = v > 0 ? v : undefined)), { suffix: 'min', min: 0, help: `0 = default (${s.laborPerPlateMin} min).` })}
           </div>
         </div>
+        ${this.#tiers(p, set)}
         ${used
           ? nothing
           : html`<div><button class="btn btn-sm btn-outline-danger" @click=${() => void this.#store.store.update((d) => (d.pricingProfiles = d.pricingProfiles.filter((x) => x.id !== p.id)))}>Delete profile</button></div>`}
       </section>
+    `;
+  }
+
+  /** Quantity discounts: from N parts in a quote, X % off (the highest reached tier applies). */
+  #tiers(p: PricingProfile, set: (mutate: (x: PricingProfile) => void) => void) {
+    const tiers = p.quantityTiers ?? [];
+    const sorted = (x: PricingProfile) => (x.quantityTiers = (x.quantityTiers ?? []).sort((a, b) => a.fromParts - b.fromParts));
+    return html`
+      <div class="mb-3">
+        <div class="mb-1">Quantity discounts</div>
+        ${tiers.map((t, i) => html`<div class="input-group input-group-sm mb-1" style="max-width: 22rem">
+          <span class="input-group-text">from</span>
+          ${cellNumber(t.fromParts, (v) => v && set((x) => { x.quantityTiers![i]!.fromParts = Math.round(v); sorted(x); }), { min: 1, step: 1, title: 'From parts' })}
+          <span class="input-group-text">parts</span>
+          ${cellNumber(t.discountPercent, (v) => set((x) => (x.quantityTiers![i]!.discountPercent = v ?? 0)), { min: 0, step: 0.5, title: 'Discount %' })}
+          <span class="input-group-text">% off</span>
+          <button class="btn btn-outline-danger" title="Remove tier" @click=${() => set((x) => { x.quantityTiers!.splice(i, 1); if (!x.quantityTiers!.length) delete x.quantityTiers; })}>✕</button>
+        </div>`)}
+        <button class="btn btn-sm btn-link px-0" @click=${() => set((x) => { const last = x.quantityTiers?.at(-1); (x.quantityTiers ??= []).push({ fromParts: last ? last.fromParts * 2 : 10, discountPercent: last ? last.discountPercent + 5 : 5 }); })}>+ Quantity discount</button>
+        <div class="form-text">Counts all parts of a quote (runs × parts per run). The highest reached tier applies, after the markup and before the customer discount.</div>
+      </div>
     `;
   }
 

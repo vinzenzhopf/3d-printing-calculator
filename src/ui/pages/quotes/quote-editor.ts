@@ -8,9 +8,8 @@ import { QUOTE_STATUSES, compareQuote, createQuote, freezeQuote, quoteResult, qu
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
-import { money, newId, num, percent, today } from '../../format';
+import { money, newId, today } from '../../format';
 import { pickFilament } from '../../filament-picker';
-import { SOURCE_LABEL, filamentOptions } from '../filaments/labels';
 import { STATUS_COLOR } from './status';
 import { partsPerRun, planParts } from '../../../core/parts';
 import { applyEstimate } from '../../../core/slicer';
@@ -18,6 +17,7 @@ import { DEFAULT_DENSITY, metersToGrams } from '../../../core/stock';
 import { readSlicerFile } from '../../slicer-file';
 import { openPrintLogWith } from '../print-log-page';
 import './quote-offer';
+import { quoteBreakdown } from './quote-breakdown';
 import { ask } from '../../dialogs';
 
 @customElement('quote-editor')
@@ -67,7 +67,7 @@ export class QuoteEditor extends LitElement {
         </div>
         ${frozen
           ? html`<div class="alert alert-info d-flex flex-wrap align-items-center gap-2">
-              🔒 Frozen on ${new Date(quote.snapshot!.frozenAt).toLocaleDateString()}: prices no longer change with new purchases or settings.
+              🔒 Frozen on ${new Date(quote.snapshot!.frozenAt).toLocaleDateString()}: prices no longer change with new purchases or settings. To change plates, discount or target price, go back to draft.
               <button class="btn btn-sm btn-outline-primary ms-auto" @click=${() => this.#status('draft')}>Back to draft to edit</button>
             </div>`
           : quote.status !== 'draft'
@@ -81,7 +81,7 @@ export class QuoteEditor extends LitElement {
             <fieldset ?disabled=${frozen}>
               ${this.#header(quote)} ${quote.plates.map((p, i) => this.#plateCard(p, i, result))}
               <button class="btn btn-outline-primary mb-3" @click=${this.#addPlate}>+ Add plate</button>
-              ${this.#planner(quote)} ${this.#extras(quote)}
+              ${this.#planner(quote, result)} ${this.#extras(quote)}
             </fieldset>
             ${textAreaField('Notes', quote.notes ?? '', (v) => this.#set((q) => (q.notes = v || undefined)))}
           </div>
@@ -111,6 +111,15 @@ export class QuoteEditor extends LitElement {
             </label>
           </div>
           <div class="col-md-4">${numberField('Discount', quote.discountPercent ?? 0, (v) => this.#set((q) => (q.discountPercent = v || undefined)), { suffix: '%', min: 0, max: 100 })}</div>
+          <div class="col-md-8">
+            <label class="form-label d-block mb-0"><span class="d-block mb-1">Target price for the whole quote (optional)</span>
+              <div class="input-group" style="max-width: 16rem">
+                ${cellNumber(quote.targetPrice || null, (v) => this.#set((q) => (v ? (q.targetPrice = v) : delete q.targetPrice)), { min: 0, step: 0.01, allowEmpty: true, placeholder: 'from the profile', title: `Target price (${doc.settings.currency})` })}
+                <span class="input-group-text">${doc.settings.currency}</span>
+              </div>
+              <span class="form-text d-block mb-3">The markup follows from it and the calculation shows your profit. For prices per part, use the part planner.</span>
+            </label>
+          </div>
         </div>
       </section>
     `;
@@ -202,40 +211,50 @@ export class QuoteEditor extends LitElement {
     </details>`;
   }
 
-  #planner(quote: Quote) {
+  #planner(quote: Quote, result: QuoteResult | null) {
     const required = quote.requiredParts ?? [];
     const rows = planParts(quote);
+    const cur = this.#doc.settings.currency;
+    const econ = new Map((result?.parts ?? []).map((p) => [p.name.trim().toLowerCase(), p]));
+    const priced = required.some((r) => (r.price ?? 0) > 0);
     const hasParts = quote.plates.some((p) => p.parts?.length);
     const set = (mutate: (q: Quote) => void) => this.#set(mutate);
     if (!required.length && !hasParts) {
       return html`<p class="small"><button class="btn btn-sm btn-link p-0" @click=${() => set((q) => (q.requiredParts = [{ name: '', quantity: 1 }]))}>+ Part planner</button>
-        <span class="text-body-secondary">: list the parts the customer needs and check that your plates cover them.</span></p>`;
+        <span class="text-body-secondary">: list the parts the customer needs (optionally with a price each), check that your plates cover them, and see the cost and profit per part.</span></p>`;
     }
     return html`<section class="card card-body mb-3">
       <h2 class="h6">Part planner</h2>
-      <div class="row g-3">
-        <div class="col-md-5">
-          <div class="small text-body-secondary mb-1">Required</div>
-          ${required.map((r, i) => html`<div class="input-group input-group-sm mb-1">
-            <input class="form-control" aria-label="Required part" .value=${r.name} @change=${(e: Event) => set((q) => (q.requiredParts![i]!.name = (e.target as HTMLInputElement).value.trim()))} />
-            ${cellNumber(r.quantity, (v) => set((q) => (q.requiredParts![i]!.quantity = v ?? 0)), { min: 0, step: 1, width: '5rem', title: 'Required quantity' })}
-            <button class="btn btn-outline-danger" title="Remove" @click=${() => set((q) => q.requiredParts!.splice(i, 1))}>✕</button>
-          </div>`)}
-          <button class="btn btn-sm btn-outline-secondary" @click=${() => set((q) => (q.requiredParts ??= []).push({ name: '', quantity: 1 }))}>+ Required part</button>
-        </div>
-        <div class="col-md-7">
-          <table class="table table-sm mb-0">
-            <thead><tr><th>Part</th><th class="text-end">Required</th><th class="text-end">Planned</th><th class="text-end">Diff</th></tr></thead>
+      <div class="small text-body-secondary mb-1">Required parts, optionally with a price each: then the quote's price is the sum of the part prices, and how you spread the parts over the plates decides your profit.</div>
+      ${required.map((r, i) => html`<div class="input-group input-group-sm mb-1" style="max-width: 34rem">
+        <input class="form-control" aria-label="Required part" placeholder="Part name, e.g. Middle A" .value=${r.name} @change=${(e: Event) => set((q) => (q.requiredParts![i]!.name = (e.target as HTMLInputElement).value.trim()))} />
+        <span class="input-group-text">×</span>
+        ${cellNumber(r.quantity, (v) => set((q) => (q.requiredParts![i]!.quantity = v ?? 0)), { min: 0, step: 1, width: '5rem', title: 'Required quantity' })}
+        <span class="input-group-text">à</span>
+        ${cellNumber(r.price ?? null, (v) => set((q) => (v ? (q.requiredParts![i]!.price = v) : delete q.requiredParts![i]!.price)), { min: 0, step: 0.01, width: '6.5rem', allowEmpty: true, placeholder: 'price', title: `Price each (${cur})` })}
+        <span class="input-group-text">${cur}</span>
+        <button class="btn btn-outline-danger" title="Remove" @click=${() => set((q) => q.requiredParts!.splice(i, 1))}>✕</button>
+      </div>`)}
+      <button class="btn btn-sm btn-outline-secondary mb-3" @click=${() => set((q) => (q.requiredParts ??= []).push({ name: '', quantity: 1 }))}>+ Required part</button>
+      ${rows.length
+        ? html`<div class="table-responsive"><table class="table table-sm mb-0">
+            <thead><tr><th>Part</th><th class="text-end">Required</th><th class="text-end">Planned</th><th class="text-end">Diff</th>
+              <th class="text-end">Cost each</th>${priced ? html`<th class="text-end">Price each</th><th class="text-end">Profit each</th>` : nothing}</tr></thead>
             <tbody>
-              ${rows.map((r) => html`<tr class=${r.diff < 0 ? 'table-danger' : r.diff > 0 ? 'table-warning' : 'table-success'}>
-                <td>${r.name}</td><td class="text-end">${r.required}</td><td class="text-end">${r.planned}</td>
-                <td class="text-end fw-semibold">${r.diff > 0 ? '+' : ''}${r.diff}</td>
-              </tr>`)}
+              ${rows.map((r) => {
+                const x = econ.get(r.name.trim().toLowerCase());
+                return html`<tr class=${r.diff < 0 ? 'table-danger' : r.diff > 0 ? 'table-warning' : 'table-success'}>
+                  <td>${r.name}</td><td class="text-end">${r.required}</td><td class="text-end">${r.planned}</td>
+                  <td class="text-end fw-semibold">${r.diff > 0 ? '+' : ''}${r.diff}</td>
+                  <td class="text-end">${x?.costEach != null ? money(x.costEach, cur) : '–'}</td>
+                  ${priced ? html`<td class="text-end">${x?.price != null ? money(x.price, cur) : '–'}</td>
+                    <td class="text-end ${x?.profitEach != null && x.profitEach < 0 ? 'text-danger' : ''}">${x?.profitEach != null ? money(x.profitEach, cur) : '–'}</td>` : nothing}
+                </tr>`;
+              })}
             </tbody>
-          </table>
-          <div class="small text-body-secondary mt-1">Planned = parts per run × runs, from each plate's part list.</div>
-        </div>
-      </div>
+          </table></div>
+          <div class="small text-body-secondary mt-1">Planned = parts per run × runs, from each plate's part list ("Parts on this plate"). Cost each = the plate's cost spread evenly over the pieces it prints, plus their share of failure allowance, extra work and items. Surplus pieces cost money but are not paid.</div>`
+        : nothing}
     </section>`;
   }
 
@@ -273,35 +292,14 @@ export class QuoteEditor extends LitElement {
     const doc = this.#doc;
     const cur = doc.settings.currency;
     const vat = doc.settings.vat;
-    const row = (label: string, value: number, cls = '') => (Math.abs(value) < 0.005 && !cls ? nothing : html`<tr class=${cls}><td>${label}</td><td class="text-end">${money(value, cur)}</td></tr>`);
-    const filamentName = new Map(filamentOptions(doc).map((o) => [o.value, o.label]));
     return html`
       <section class="card">
         <div class="card-body">
           <div class="text-body-secondary small">${vat.enabled ? (vat.pricesIncludeVat ? 'Price incl. VAT' : 'Price excl. VAT') : 'Price'}</div>
           <div class="display-6 fw-semibold mb-2">${money(r.price, cur)}</div>
-          <table class="table table-sm mb-2">
-            <tbody>
-              ${row('Filament', r.production.filament)} ${row('Energy', r.production.energy)} ${row('Machine', r.production.machine)}
-              ${row('Labor', r.production.labor)} ${row('Labor extras', r.laborExtras)} ${row('Items', r.items)} ${row('Failure allowance', r.failure)}
-              ${row('Cost', r.cost, 'fw-semibold')}
-              ${row('Markup', r.markup)} ${row('Discount', -r.discount)} ${row('Minimum price', r.minimumApplied)} ${row('Rounding', r.rounding)}
-              ${row(vat.enabled ? 'Net' : 'Price', r.net, 'fw-semibold')}
-              ${vat.enabled ? html`${row(`VAT ${vat.ratePercent} %`, r.vat)} ${row('Gross', r.gross, 'fw-semibold')}` : nothing}
-            </tbody>
-          </table>
-          <div class="small">
-            <div>Margin: <strong>${r.margin === null ? '–' : percent(r.margin, 1)}</strong> · Full cost: ${money(r.fullCost, cur)}</div>
-            <div>Print time: ${formatDuration(r.printHours * 60)} h · ${r.pricePerPrintHour === null ? '' : `${money(r.pricePerPrintHour, cur)} per print hour`}</div>
-            <div>Filament: ${num(r.plates.reduce((s, p) => s + p.filamentG, 0))} g</div>
-          </div>
+          ${quoteBreakdown(doc, r)}
           ${r.warnings.map((w) => html`<div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">${w}</div>`)}
           ${this.#comparison()}
-          ${r.prices.length
-            ? html`<details class="mt-2 small"><summary>Filament prices used</summary>
-                <ul class="mb-0">${r.prices.map((p) => html`<li>${filamentName.get(p.filamentId) ?? p.filamentId}: ${money(p.pricePerKg, cur)}/kg (${SOURCE_LABEL[p.source]}${p.stale ? ', stale' : ''})</li>`)}</ul>
-              </details>`
-            : nothing}
         </div>
       </section>
     `;

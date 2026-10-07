@@ -27,7 +27,31 @@ export interface CostBreakdown {
   filamentG: number;
   /** Total energy, all runs. */
   energyWh: number;
+  /** How the numbers came about, for showing the calculation. */
+  filamentRows: FilamentRow[];
+  energyDetail: EnergyDetail;
   warnings: string[];
+}
+
+/** One filament of a plate, all runs: model + its share of the waste, at its €/kg. */
+export interface FilamentRow {
+  filamentId: Id;
+  modelG: number;
+  wasteG: number;
+  grams: number;
+  pricePerKg: number;
+  cost: number;
+}
+
+/** Energy per run: heat-up + first phase + the rest, from the material's power profile. */
+export interface EnergyDetail {
+  power: PowerProfile | null;
+  heatupWh: number;
+  firstPhaseH: number;
+  firstPhaseWh: number;
+  followingH: number;
+  followingWh: number;
+  perRunWh: number;
 }
 
 const DEFAULT_FIRST_PHASE_MIN = 60;
@@ -35,7 +59,7 @@ const DEFAULT_FIRST_PHASE_MIN = 60;
 export function computePlateCost(plate: Plate, ctx: CostContext): CostBreakdown {
   const warnings: string[] = [];
   if (plate.runs <= 0 || plate.filaments.length === 0) {
-    return { filament: 0, energy: 0, machine: 0, labor: 0, total: 0, filamentG: 0, energyWh: 0, warnings };
+    return { filament: 0, energy: 0, machine: 0, labor: 0, total: 0, filamentG: 0, energyWh: 0, filamentRows: [], energyDetail: noEnergy(), warnings };
   }
   const hours = plate.printTimeMin / 60;
 
@@ -45,23 +69,31 @@ export function computePlateCost(plate: Plate, ctx: CostContext): CostBreakdown 
   const wasteG = (ctx.printer.purgeWastePerPlateG ?? 0) + (plate.purgeG ?? 0);
   let filament = 0;
   let filamentG = 0;
+  const filamentRows: FilamentRow[] = [];
   for (const f of plate.filaments) {
     const share = modelG > 0 ? f.weightG / modelG : 1 / plate.filaments.length;
     const grams = (f.weightG + wasteG * share) * plate.runs;
-    filament += (grams / 1000) * ctx.pricePerKg(f.filamentId, grams / 1000);
+    const pricePerKg = ctx.pricePerKg(f.filamentId, grams / 1000);
+    const cost = (grams / 1000) * pricePerKg;
+    filament += cost;
     filamentG += grams;
+    filamentRows.push({ filamentId: f.filamentId, modelG: f.weightG * plate.runs, wasteG: wasteG * share * plate.runs, grams, pricePerKg, cost });
   }
 
   // Energy: for mixed plates the most power-hungry material profile wins.
   const power = pickPowerProfile(plate, ctx);
   let energyWh = 0;
+  let energyDetail = noEnergy();
   if (power) {
     const phaseH = (ctx.printer.firstHourPhaseMin ?? DEFAULT_FIRST_PHASE_MIN) / 60;
-    const perRun =
-      (power.heatupMin * power.heatupPowerW) / 60 +
-      Math.min(hours, phaseH) * power.powerFirstHourW +
-      Math.max(hours - phaseH, 0) * power.powerFollowingHoursW;
+    const firstPhaseH = Math.min(hours, phaseH);
+    const followingH = Math.max(hours - phaseH, 0);
+    const heatupWh = (power.heatupMin * power.heatupPowerW) / 60;
+    const firstPhaseWh = firstPhaseH * power.powerFirstHourW;
+    const followingWh = followingH * power.powerFollowingHoursW;
+    const perRun = heatupWh + firstPhaseWh + followingWh;
     energyWh = perRun * plate.runs;
+    energyDetail = { power, heatupWh, firstPhaseH, firstPhaseWh, followingH, followingWh, perRunWh: perRun };
   } else {
     warnings.push(`No power profile on printer "${ctx.printer.name}" for the plate's material(s); energy counted as 0.`);
   }
@@ -78,8 +110,14 @@ export function computePlateCost(plate: Plate, ctx: CostContext): CostBreakdown 
     total: filament + energy + machine + labor,
     filamentG,
     energyWh,
+    filamentRows,
+    energyDetail,
     warnings,
   };
+}
+
+function noEnergy(): EnergyDetail {
+  return { power: null, heatupWh: 0, firstPhaseH: 0, firstPhaseWh: 0, followingH: 0, followingWh: 0, perRunWh: 0 };
 }
 
 function pickPowerProfile(plate: Plate, ctx: CostContext): PowerProfile | undefined {

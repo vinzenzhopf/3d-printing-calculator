@@ -313,6 +313,13 @@ export interface PricingProfile {
   minimumPrice: number;
   /** Round the final price up to this step (0 = no rounding). */
   roundTo: number;
+  /** Discount by the number of parts in a quote, e.g. from 5 parts −10 %. The highest reached tier applies. */
+  quantityTiers?: QuantityTier[];
+}
+
+export interface QuantityTier {
+  fromParts: number;
+  discountPercent: number;
 }
 
 export interface Customer {
@@ -335,6 +342,8 @@ export interface Customer {
 export interface PartCount {
   name: string;
   quantity: number;
+  /** Price per piece, for required parts: the quote's price then follows from the part prices. */
+  price?: number;
 }
 
 export interface PlateFilament {
@@ -387,6 +396,8 @@ export interface Quote {
   /** Parts the customer needs, for the part planner (QC-3). */
   requiredParts?: PartCount[];
   discountPercent?: number;
+  /** A price for the whole quote: the markup follows from it (instead of the profile's markup, discounts and rounding). */
+  targetPrice?: number;
   notes?: string;
   /** Result frozen when the quote left draft status (QC-5). Shown instead of a live recalculation. */
   snapshot?: QuoteSnapshot;

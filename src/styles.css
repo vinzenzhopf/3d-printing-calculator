@@ -96,3 +96,65 @@ price-history-chart {
 month-chart {
   display: block;
 }
+
+/* Quote calculation (quote-breakdown.ts): share bar, legend dots, expandable steps. */
+.cost-filament { --cost: #2a78d6; }
+.cost-energy { --cost: #e0a526; }
+.cost-machine { --cost: #7a5cc7; }
+.cost-labor { --cost: #2f9e6e; }
+.cost-items { --cost: #8a8d91; }
+.cost-failure { --cost: #d0763c; }
+.cost-profit { --cost: #1d5f8a; }
+.cost-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--bs-secondary-bg);
+}
+.cost-bar > span {
+  background: var(--cost);
+}
+.cost-bar > span + span {
+  border-left: 2px solid var(--bs-body-bg);
+}
+.cost-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  background: var(--cost);
+}
+.calc-step {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.calc-step > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.calc-step > summary::-webkit-details-marker {
+  display: none;
+}
+.calc-step > summary::after {
+  content: '▸';
+  color: var(--bs-secondary-color);
+  order: -1;
+}
+.calc-step[open] > summary::after {
+  content: '▾';
+}
+.calc-formula {
+  margin: 0.35rem 0 0.2rem 1.1rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--bs-border-color);
+}
+.calc-total {
+  border-bottom-width: 2px;
+}
+.calc-profit {
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.375rem;
+  background: var(--bs-tertiary-bg);
+}
