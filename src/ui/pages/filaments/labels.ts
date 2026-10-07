@@ -9,6 +9,7 @@ export const SOURCE_LABEL: Record<PriceSource, string> = {
   'manual-filament': 'manual (color)',
   'manual-line': 'manual (line)',
   purchases: 'purchases',
+  'predecessor-purchases': 'predecessor purchases',
   'line-purchases': 'line purchases',
   none: 'no price',
 };
@@ -20,13 +21,6 @@ export function lineLabel(line: ProductLine): string {
 export function filamentLabel(doc: AppDocument, f: Filament): string {
   const line = doc.productLines.find((l) => l.id === f.productLineId);
   return `${line ? lineLabel(line) : '?'} – ${f.color}${f.finish ? ` (${f.finish})` : ''}`;
-}
-
-/** Filament options grouped/sorted by product line, for selects. */
-export function filamentOptions(doc: AppDocument): Option[] {
-  return doc.filaments
-    .map((f) => ({ value: f.id, label: filamentLabel(doc, f) }))
-    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** Price with its source and a stale marker. */

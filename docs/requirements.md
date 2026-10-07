@@ -85,6 +85,15 @@ Quote → PrintJob (actual runs, actual time/weight, failures) → stock deducti
   | PLA+ 2.0 | **successor of PLA+** ("upgraded evolution"), 195–230 °C, rated for high speed | "PLA Plus 2.0", "High Speed PLA+2.0" *(likely same product, verify)* |
   | PLA Meta | high-flow, slightly matte, 185–225 °C, ≤ ~250 mm/s | "Meta PLA", "High Speed PLA Meta" |
   | HS-PLA / "Rapid" | separate high-speed line (≤ 500–600 mm/s claimed) | "High Speed PLA", "Rapid HS-PLA" (Black 4×1 kg, 2025-11) |
+- **FI-2b (M)** **Catalog cleanup**, chosen per case:
+  - *Deprecate* (renamed or replaced products): a filament or product line is marked old. Its history (purchases,
+    spools, prints, quotes, statistics) stays; it's hidden from filament pickers, the color overview and the to-buy
+    list, and shown greyed in the catalog behind "Show deprecated". Warns while spools are sealed/open. An optional
+    successor link lets the new entry's price fall back to the predecessor's purchases.
+  - *Merge* (duplicates, typos like "Grey"/"Grau"): all references (purchases, spools, print jobs, quote plates) move
+    to the kept entry, which takes over fields it lacks (manual price, low-stock threshold, …); the duplicate is deleted.
+    Frozen quote snapshots stay as they are and resolve the old id via `mergedIds`. Merging product lines moves their
+    colors and, if confirmed, merges colors that exist in both. A preview shows what moves before anything changes.
 - **FI-3a (S)** Optional import of manufacturer/product-line data (density, spool weight) from the community
   [SpoolmanDB](https://github.com/Donkie/SpoolmanDB) JSON.
 - **FI-3 (S)** Search/filter by manufacturer, material, color, finish, in-stock status. Show filaments as color swatches.

@@ -4,7 +4,8 @@ import type { AppDocument } from '../../../core/model';
 import { formatDuration } from '../../../core/duration';
 import { SPLIT_LABEL } from '../../../core/parts';
 import { money, num, percent } from '../../format';
-import { SOURCE_LABEL, filamentOptions } from '../filaments/labels';
+import { findFilament } from '../../../core/catalog-cleanup';
+import { SOURCE_LABEL, filamentLabel } from '../filaments/labels';
 
 /** Cost blocks of a quote, in the order of the share bar, with their colors (see styles.css). */
 const BLOCKS = [
@@ -26,7 +27,8 @@ type Block = (typeof BLOCKS)[number][0];
 export function quoteBreakdown(doc: AppDocument, r: QuoteResult): TemplateResult {
   const cur = doc.settings.currency;
   const m = (v: number) => money(v, cur);
-  const filamentName = new Map(filamentOptions(doc).map((o) => [o.value, o.label]));
+  // Frozen snapshots may name a duplicate that was merged since: findFilament follows it.
+  const filamentName = { get: (id: string) => { const f = findFilament(doc, id); return f ? filamentLabel(doc, f) : undefined; } };
   const e = r.explain;
   const plates = r.plates.filter((p) => p.explain) as (QuoteResult['plates'][number] & { explain: PlateExplain })[];
   const multi = plates.length > 1;

@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { activeFilaments } from '../../../core/catalog-cleanup';
 import { compareColors } from '../../../core/colors';
 import type { AppDocument, Filament } from '../../../core/model';
 import { stockByFilament, type FilamentStock } from '../../../core/stock';
@@ -39,7 +40,7 @@ export class FilamentColors extends LitElement {
     const materials = [...new Set(doc.productLines.map((l) => l.baseMaterial))].sort();
     const q = this.filter.toLowerCase();
     const inStock = (f: Filament) => (stock.get(f.id)?.spools ?? 0) > 0;
-    const tiles = doc.filaments
+    const tiles = activeFilaments(doc)
       .filter((f) => (show === 'all' ? true : show === 'owned' ? f.status === 'owned' : inStock(f)))
       .filter((f) => !this.material || line(f)?.baseMaterial === this.material)
       .filter((f) => !q || `${f.color} ${f.finish ?? ''} ${f.colorHex ?? ''} ${line(f) ? lineLabel(line(f)!) : ''}`.toLowerCase().includes(q))

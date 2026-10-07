@@ -169,6 +169,8 @@ export interface ProductLine {
   aliases?: string[];
   predecessorId?: Id;
   successorId?: Id;
+  /** Deprecated since (FI-2b): kept for history, hidden from pickers, the color overview and the to-buy list. */
+  deprecatedAt?: IsoDate;
   notes?: string;
   /** Price list entry for all colors of this line (FI-11). */
   manualPrice?: ManualPrice;
@@ -194,6 +196,12 @@ export interface Filament {
   manualPrice?: ManualPrice;
   /** Warn and put on the to-buy list below this stock (FI-7). */
   lowStockG?: number;
+  /** Deprecated since (FI-2b), see ProductLine.deprecatedAt. A deprecated line deprecates all its colors. */
+  deprecatedAt?: IsoDate;
+  predecessorId?: Id;
+  successorId?: Id;
+  /** Ids of duplicates merged into this one (FI-2b), so frozen quote snapshots still show a name. */
+  mergedIds?: Id[];
 }
 
 /** One physical spool (FI-5). Its stock is the sum of its movements (FI-6). */

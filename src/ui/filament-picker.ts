@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { isFilamentDeprecated } from '../core/catalog-cleanup';
 import type { BaseMaterial, Filament, ProductLine } from '../core/model';
 import { store } from '../state/store-instance';
 import { newId } from './format';
@@ -41,10 +42,11 @@ export class FilamentPicker extends LitElement {
     const doc = store().doc;
     const current = doc.filaments.find((f) => f.id === this.value);
     const lineId = current?.productLineId ?? this.pendingLine;
-    const lines = [...doc.productLines].sort((a, b) => a.manufacturer.localeCompare(b.manufacturer) || a.name.localeCompare(b.name));
+    // Deprecated lines/colors (FI-2b) are only listed when already chosen, so existing records still show them.
+    const lines = doc.productLines.filter((l) => !l.deprecatedAt || l.id === lineId).sort((a, b) => a.manufacturer.localeCompare(b.manufacturer) || a.name.localeCompare(b.name));
     const brands = [...new Set(lines.map((l) => l.manufacturer))];
     const colors = doc.filaments
-      .filter((f) => f.productLineId === lineId)
+      .filter((f) => f.productLineId === lineId && (!isFilamentDeprecated(doc, f) || f.id === this.value))
       .sort((a, b) => a.color.localeCompare(b.color));
 
     return html`
@@ -52,7 +54,7 @@ export class FilamentPicker extends LitElement {
         <select class="form-select form-select-sm" aria-label="Product line" @change=${this.#pickLine}>
           <option value="" ?selected=${!lineId}>Product line…</option>
           ${brands.map((brand) => html`<optgroup label=${brand}>
-            ${lines.filter((l) => l.manufacturer === brand).map((l) => html`<option value=${l.id} ?selected=${l.id === lineId}>${l.manufacturer} ${l.name}</option>`)}
+            ${lines.filter((l) => l.manufacturer === brand).map((l) => html`<option value=${l.id} ?selected=${l.id === lineId}>${l.manufacturer} ${l.name}${l.deprecatedAt ? ' · deprecated' : ''}</option>`)}
           </optgroup>`)}
           <option value=${NEW} ?selected=${this.creating === 'line'}>+ New product line…</option>
         </select>
@@ -107,7 +109,8 @@ export class FilamentPicker extends LitElement {
     this.creating = null;
     this.pendingLine = v;
     // A new line means the old color no longer applies; preselect the only color if there is one.
-    const colors = store().doc.filaments.filter((f) => f.productLineId === v);
+    const doc = store().doc;
+    const colors = doc.filaments.filter((f) => f.productLineId === v && !isFilamentDeprecated(doc, f));
     this.#emit(colors.length === 1 ? colors[0]!.id : '');
   };
 
@@ -153,7 +156,7 @@ export class FilamentPicker extends LitElement {
 }
 
 function colorLabel(f: Filament): string {
-  return `${f.color}${f.finish ? ` (${f.finish})` : ''}${f.status === 'wishlist' ? ' · wishlist' : ''}`;
+  return `${f.color}${f.finish ? ` (${f.finish})` : ''}${f.status === 'wishlist' ? ' · wishlist' : ''}${f.deprecatedAt ? ' · deprecated' : ''}`;
 }
 
 /** A new line gets the material profile named like its base material, if there is one (for the power table). */

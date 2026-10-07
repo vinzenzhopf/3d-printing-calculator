@@ -160,6 +160,15 @@ export function findDanglingReferences(doc: AppDocument): string[] {
     if (!ok) warnings.push(message);
   };
   for (const f of doc.filaments) check(lines.has(f.productLineId), `Filament ${f.id}: unknown product line ${f.productLineId}`);
+  for (const x of [...doc.productLines, ...doc.filaments]) {
+    const known = 'productLineId' in x ? filaments : lines;
+    check(!x.predecessorId || known.has(x.predecessorId), `${x.id}: unknown predecessor ${x.predecessorId}`);
+    check(!x.successorId || known.has(x.successorId), `${x.id}: unknown successor ${x.successorId}`);
+  }
+  for (const s of doc.spools) check(filaments.has(s.filamentId), `Spool ${s.label}: unknown filament ${s.filamentId}`);
+  for (const j of doc.printJobs) {
+    for (const f of j.filaments) check(!f.filamentId || filaments.has(f.filamentId), `Print ${j.date} ${j.name}: unknown filament ${f.filamentId}`);
+  }
   for (const s of doc.spools) check(!s.kindId || kinds.has(s.kindId), `Spool ${s.label}: unknown empty spool kind ${s.kindId}`);
   for (const p of doc.purchases) check(filaments.has(p.filamentId), `Purchase ${p.id}: unknown filament ${p.filamentId}`);
   for (const p of doc.purchases) check(!p.kindId || kinds.has(p.kindId), `Purchase ${p.id}: unknown empty spool kind ${p.kindId}`);

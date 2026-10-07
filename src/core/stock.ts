@@ -1,3 +1,4 @@
+import { isFilamentDeprecated } from './catalog-cleanup';
 import type { AppDocument, FilamentPurchase, Id, IsoDate, Spool, SpoolKind, StockMovement } from './model';
 
 /** Remaining net grams, or null when the spool was never weighed / booked (FI-6). */
@@ -151,11 +152,11 @@ export interface ToBuy {
   lastPurchase?: FilamentPurchase;
 }
 
-/** Filaments below their low-stock threshold (FI-7), most urgent first. */
+/** Filaments below their low-stock threshold (FI-7), most urgent first. Deprecated ones aren't bought again. */
 export function toBuyList(doc: AppDocument): ToBuy[] {
   const stock = stockByFilament(doc);
   return doc.filaments
-    .filter((f) => f.lowStockG !== undefined && f.status === 'owned')
+    .filter((f) => f.lowStockG !== undefined && f.status === 'owned' && !isFilamentDeprecated(doc, f))
     .map((f) => {
       const s = stock.get(f.id);
       const lastPurchase = doc.purchases.filter((p) => p.filamentId === f.id).sort((a, b) => b.date.localeCompare(a.date))[0];
