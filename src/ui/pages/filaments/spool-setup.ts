@@ -1,6 +1,6 @@
 import { LitElement, html, nothing, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { LABEL_LAYOUTS, buildLabelPdf, labelCode, labelCodes, qrMatrix, type LabelLayout } from '../../../core/labels';
+import { LABEL_LAYOUTS, buildLabelPdf, labelArtwork, labelCode, labelCodes, qrMatrix, type LabelLayout } from '../../../core/labels';
 import type { AppDocument, SpoolKind } from '../../../core/model';
 import { nextLabelNumber } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
@@ -18,13 +18,17 @@ export class SpoolSetup extends LitElement {
   @state() private count = 0;
   @state() private startAt = 1;
   @state() private first = 0;
-  @state() private caption = '3D Print Calc';
   @state() private outlines = false;
   @state() private baseUrl = `${location.origin}${location.pathname}`;
   @state() private done = '';
 
   protected override createRenderRoot() {
     return this;
+  }
+
+  /** Caption lines below the code; kept in the settings so every print uses it. */
+  get #caption(): string {
+    return this.#doc.settings.labelCaption ?? '3D Print Calc';
   }
 
   get #doc(): AppDocument {
@@ -92,11 +96,15 @@ export class SpoolSetup extends LitElement {
             </div>`
           : nothing}
         <div class="row g-2">
-          <div class="col-6 col-md-3">${numberField('Labels', count, (v) => (this.count = Math.max(1, Math.round(v))), { min: 1, step: 1, help: `${perPage} per sheet` })}</div>
-          <div class="col-6 col-md-3">${numberField('Start at place', this.startAt, (v) => (this.startAt = Math.min(perPage, Math.max(1, Math.round(v)))), { min: 1, max: perPage, step: 1, help: 'for partly used sheets' })}</div>
-          <div class="col-6 col-md-3">${numberField('First number', first, (v) => (this.first = Math.max(1, Math.round(v))), { min: 1, step: 1, help: `next free: ${this.#nextNumber()}` })}</div>
-          <div class="col-6 col-md-3">${textField('Caption', this.caption, (v) => (this.caption = v))}</div>
+          <div class="col-6 col-md-4">${numberField('Labels', count, (v) => (this.count = Math.max(1, Math.round(v))), { min: 1, step: 1, help: `${perPage} per sheet` })}</div>
+          <div class="col-6 col-md-4">${numberField('Start at place', this.startAt, (v) => (this.startAt = Math.min(perPage, Math.max(1, Math.round(v)))), { min: 1, max: perPage, step: 1, help: 'for partly used sheets' })}</div>
+          <div class="col-6 col-md-4">${numberField('First number', first, (v) => (this.first = Math.max(1, Math.round(v))), { min: 1, step: 1, help: `next free: ${this.#nextNumber()}` })}</div>
         </div>
+        <label class="form-label d-block mb-3"><span class="d-block mb-1">Caption</span>
+          <textarea class="form-control" rows="2" style="max-width: 24rem" .value=${this.#caption}
+            @input=${(e: Event) => void this.#update((d) => (d.settings.labelCaption = (e.target as HTMLTextAreaElement).value))}></textarea>
+          <span class="form-text d-block">Small text below the code, one line per line, e.g. your name and the app's short address. Long lines get smaller.</span>
+        </label>
         ${selectField('QR code holds', doc.settings.labelQrContent ?? 'link', [
           { value: 'link', label: 'Link: the phone camera opens the app' },
           { value: 'code', label: 'Code only: smaller, scan with the app (📷 Scan)' },
@@ -127,14 +135,13 @@ export class SpoolSetup extends LitElement {
     const scale = 3; // px per mm
     const w = layout.labelWidthMm;
     const h = layout.labelHeightMm;
-    const pad = Math.min(2, h * 0.1);
-    const qr = Math.min(h - 2 * pad, w * 0.55);
-    const cell = qr / m.length;
+    // Same layout as the PDF (core/labels), so the preview shows what gets printed.
+    const art = labelArtwork(layout, code, this.#caption);
+    const cell = art.qrSize / m.length;
     return html`<svg width=${w * scale} height=${h * scale} viewBox="0 0 ${w} ${h}" role="img" aria-label="Label preview"
       style="border: 1px dashed var(--bs-border-color); border-radius: 2px; background: #fff">
-      ${m.flatMap((row, r) => row.map((on, c) => (on ? svg`<rect x=${pad + c * cell} y=${(h - qr) / 2 + r * cell} width=${cell + 0.01} height=${cell + 0.01} fill="#000"></rect>` : nothing)))}
-      <text x=${pad + qr + pad} y=${h / 2} font-family="Helvetica, Arial, sans-serif" font-weight="bold" font-size=${Math.min(6.3, (w - qr - 3 * pad) / (code.length * 0.6))} fill="#000">${code}</text>
-      ${this.caption ? svg`<text x=${pad + qr + pad} y=${h / 2 + 3.4} font-family="Helvetica, Arial, sans-serif" font-size="2.1" fill="#000">${this.caption}</text>` : nothing}
+      ${m.flatMap((row, r) => row.map((on, c) => (on ? svg`<rect x=${art.pad + c * cell} y=${(h - art.qrSize) / 2 + r * cell} width=${cell + 0.01} height=${cell + 0.01} fill="#000"></rect>` : nothing)))}
+      ${art.lines.map((l) => svg`<text x=${l.xMm} y=${l.yMm} font-family="Helvetica, Arial, sans-serif" font-weight=${l.bold ? 'bold' : 'normal'} font-size=${(l.sizePt * 25.4) / 72} fill="#000">${l.text}</text>`)}
     </svg>`;
   }
 
@@ -146,7 +153,7 @@ export class SpoolSetup extends LitElement {
 
   #download(layout: LabelLayout, first: number, count: number) {
     const codes = labelCodes(first, count);
-    const pdf = buildLabelPdf({ layout, codes, urlFor: (c) => this.#url(c), startAt: this.startAt - 1, caption: this.caption || undefined, outlines: this.outlines });
+    const pdf = buildLabelPdf({ layout, codes, urlFor: (c) => this.#url(c), startAt: this.startAt - 1, caption: this.#caption || undefined, outlines: this.outlines });
     const url = URL.createObjectURL(new Blob([pdf.slice()], { type: 'application/pdf' }));
     const name = this.outlines ? `labels-test-${codes[0]}.pdf` : `labels-${codes[0]}-${codes.at(-1)}.pdf`;
     Object.assign(document.createElement('a'), { href: url, download: name }).click();

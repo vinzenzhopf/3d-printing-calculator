@@ -116,37 +116,83 @@ export interface LabelPdfOptions {
   /** Content of the QR code for a label code (a link into the app). */
   urlFor: (code: string) => string;
   startAt?: number;
-  /** Small text under the code, e.g. "3D Print Calc". */
+  /** Small text under the code, one line per line break, e.g. "3D Print Calc" and "print.example.com". */
   caption?: string;
   /** Draw label borders, for a test print on plain paper. */
   outlines?: boolean;
 }
 
-/** One QR code + code text per label. */
+const MM_PER_PT = 25.4 / 72;
+
+/** One text line on a label: baseline position relative to the label's top-left corner. */
+export interface LabelTextLine {
+  text: string;
+  xMm: number;
+  yMm: number;
+  sizePt: number;
+  bold: boolean;
+}
+
+export interface LabelArtwork {
+  pad: number;
+  qrSize: number;
+  lines: LabelTextLine[];
+}
+
+/**
+ * Where the QR code and the texts go on one label: the code in bold, the caption
+ * lines below it, each as large as fits next to the QR code, and the block
+ * centered vertically. Shared by the PDF and the on-screen preview.
+ */
+export function labelArtwork(layout: LabelLayout, code: string, caption = ''): LabelArtwork {
+  const w = layout.labelWidthMm;
+  const h = layout.labelHeightMm;
+  const pad = Math.min(2, h * 0.1);
+  const qrSize = Math.min(h - 2 * pad, w * 0.55);
+  const textX = pad + qrSize + pad;
+  const textWidth = w - textX - pad;
+  const captionLines = h >= 12 ? caption.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) : [];
+
+  const fit = (text: string, start: number, min: number, bold: boolean) => {
+    let size = start;
+    while (size > min && textWidthMm(text, size, bold) > textWidth) size -= 0.25;
+    return size;
+  };
+  let codeSize = fit(code, 18, 5, true);
+  let captionSizes = captionLines.map((l) => fit(l, Math.min(6, codeSize * 0.5), 3, false));
+  // Shrink everything when the block is taller than the label.
+  const height = () => codeSize * 0.75 * MM_PER_PT + captionSizes.reduce((sum, s) => sum + s * 1.25 * MM_PER_PT, 0);
+  const available = h - 2 * pad;
+  if (height() > available) {
+    const factor = available / height();
+    codeSize *= factor;
+    captionSizes = captionSizes.map((s) => s * factor);
+  }
+
+  let y = (h - height()) / 2 + codeSize * 0.75 * MM_PER_PT;
+  const lines: LabelTextLine[] = [{ text: code, xMm: textX, yMm: y, sizePt: codeSize, bold: true }];
+  captionLines.forEach((text, i) => {
+    y += captionSizes[i]! * 1.25 * MM_PER_PT;
+    lines.push({ text, xMm: textX, yMm: y, sizePt: captionSizes[i]!, bold: false });
+  });
+  return { pad, qrSize, lines };
+}
+
+/** One QR code + code text (+ caption lines) per label. */
 export function buildLabelPdf(opts: LabelPdfOptions): Uint8Array {
   const { layout } = opts;
   const pdf = new PdfDocument(layout.pageWidthMm, layout.pageHeightMm);
   const positions = labelPositions(layout, opts.codes.length, opts.startAt ?? 0);
   const pages: PdfPage[] = [];
-  const pad = Math.min(2, layout.labelHeightMm * 0.1);
-  const qrSize = Math.min(layout.labelHeightMm - 2 * pad, layout.labelWidthMm * 0.55);
-  const textX = pad + qrSize + pad;
-  const textWidth = layout.labelWidthMm - textX - pad;
 
   opts.codes.forEach((code, i) => {
     const pos = positions[i]!;
     while (pages.length <= pos.page) pages.push(pdf.addPage());
     const page = pages[pos.page]!;
     if (opts.outlines) page.outline(pos.xMm, pos.yMm, layout.labelWidthMm, layout.labelHeightMm);
-    drawQr(page, qrMatrix(opts.urlFor(code)), pos.xMm + pad, pos.yMm + (layout.labelHeightMm - qrSize) / 2, qrSize);
-    // Largest code text that fits next to the QR code.
-    let size = 18;
-    while (size > 5 && textWidthMm(code, size, true) > textWidth) size -= 0.5;
-    const centerY = pos.yMm + layout.labelHeightMm / 2;
-    const captionSize = Math.min(6, size * 0.5);
-    const hasCaption = !!opts.caption && layout.labelHeightMm >= 15;
-    page.text(pos.xMm + textX, centerY + (hasCaption ? 0 : (size * 0.35) / (72 / 25.4)), size, code, true);
-    if (hasCaption) page.text(pos.xMm + textX, centerY + (captionSize * 1.6) / (72 / 25.4), captionSize, opts.caption!);
+    const art = labelArtwork(layout, code, opts.caption);
+    drawQr(page, qrMatrix(opts.urlFor(code)), pos.xMm + art.pad, pos.yMm + (layout.labelHeightMm - art.qrSize) / 2, art.qrSize);
+    for (const l of art.lines) page.text(pos.xMm + l.xMm, pos.yMm + l.yMm, l.sizePt, l.text, l.bold);
   });
   if (pages.length === 0) pdf.addPage();
   return pdf.build();

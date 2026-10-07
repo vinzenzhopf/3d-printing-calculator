@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LABEL_LAYOUTS, buildLabelPdf, labelCodes, labelPositions, qrMatrix } from '../src/core/labels';
-import { PdfDocument } from '../src/core/pdf';
+import { LABEL_LAYOUTS, buildLabelPdf, labelArtwork, labelCodes, labelPositions, qrMatrix } from '../src/core/labels';
+import { PdfDocument, textWidthMm } from '../src/core/pdf';
 
 const l7651 = LABEL_LAYOUTS.find((l) => l.id === 'avery-l7651')!;
 const text = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
@@ -62,6 +62,20 @@ describe('PDF', () => {
     expect(out).toContain('(L0001) Tj');
     expect(out).toContain('(L0070) Tj');
     expect(out.match(/\(Spool\) Tj/g)).toHaveLength(70);
+  });
+
+  it('stacks a multi-line caption below the code, inside the label and next to the QR code', () => {
+    const l = LABEL_LAYOUTS[0]!; // 48.5 × 25.5 mm
+    const art = labelArtwork(l, 'L0042', '3D-Print-Calc\n3dp.example.com\n\n');
+    expect(art.lines.map((x) => [x.text, x.bold])).toEqual([['L0042', true], ['3D-Print-Calc', false], ['3dp.example.com', false]]);
+    const ys = art.lines.map((x) => x.yMm);
+    expect(ys).toEqual([...ys].sort((a, b) => a - b)); // top to bottom
+    expect(ys[0]! - (art.lines[0]!.sizePt * 25.4) / 72).toBeGreaterThanOrEqual(art.pad - 0.01);
+    expect(ys.at(-1)!).toBeLessThanOrEqual(l.labelHeightMm - art.pad + 0.01);
+    for (const x of art.lines) expect(x.xMm + textWidthMm(x.text, x.sizePt, x.bold)).toBeLessThanOrEqual(l.labelWidthMm - art.pad + 0.01);
+    const out = text(buildLabelPdf({ layout: l, codes: ['L0042'], urlFor: (c) => c, caption: '3D-Print-Calc\n3dp.example.com' }));
+    expect(out).toContain('(3D-Print-Calc) Tj');
+    expect(out).toContain('(3dp.example.com) Tj');
   });
 });
 
