@@ -21,6 +21,10 @@ describe('label codes and positions', () => {
     expect(labelPositions(l7651, 1, 7)[0]).toEqual({ page: 0, xMm: 4.75 + 2 * 40.64, yMm: 10.7 + 21.2 });
   });
 
+  it('preset ids are unique', () => {
+    expect(new Set(LABEL_LAYOUTS.map((l) => l.id)).size).toBe(LABEL_LAYOUTS.length);
+  });
+
   it('every preset fits on its page', () => {
     for (const l of LABEL_LAYOUTS) {
       expect(l.marginLeftMm + (l.cols - 1) * l.pitchXMm + l.labelWidthMm).toBeLessThanOrEqual(l.pageWidthMm);

@@ -19,6 +19,18 @@ export interface LabelLayout {
   pitchYMm: number;
 }
 
+/** A4 sheet of gapless labels centered on the page (the Avery Zweckform top sellers). */
+function zweckform(articles: string, cols: number, rows: number, w: number, h: number): LabelLayout {
+  const round = (mm: number) => Math.round(mm * 100) / 100;
+  const per = cols * rows;
+  return {
+    id: `zweckform-${articles.split(' / ')[1]}`,
+    name: `Avery Zweckform ${articles} – ${w} × ${h} mm, ${per} per sheet`,
+    pageWidthMm: 210, pageHeightMm: 297, cols, rows, labelWidthMm: w, labelHeightMm: h,
+    marginTopMm: round((297 - rows * h) / 2), marginLeftMm: round((210 - cols * w) / 2), pitchXMm: w, pitchYMm: h,
+  };
+}
+
 /**
  * Common A4 label sheets. Values follow the manufacturers' templates; check
  * with a test print on plain paper ("outlines" option) before using labels.
@@ -26,6 +38,17 @@ export interface LabelLayout {
 export const LABEL_LAYOUTS: LabelLayout[] = [
   // The owner's sheets (default): 4 × 10, no gaps, centered on A4 → 8 mm side and 21 mm top margins.
   { id: 'a4-40-48x25', name: '48.5 × 25.5 mm, 40 per sheet (4 × 10, centered)', pageWidthMm: 210, pageHeightMm: 297, cols: 4, rows: 10, labelWidthMm: 48.5, labelHeightMm: 25.5, marginTopMm: 21, marginLeftMm: 8, pitchXMm: 48.5, pitchYMm: 25.5 },
+  // Avery Zweckform top sellers, article numbers for packs of 30 / 100 / 200 sheets.
+  zweckform('6119 / 3478 / 3478-200', 1, 1, 210, 297),
+  zweckform('6176 / 3655 / 3655-200', 1, 2, 210, 148),
+  zweckform('6120 / 3483 / 3483-200', 2, 2, 105, 148),
+  zweckform('6138 / 3427 / 3427-200', 2, 4, 105, 74),
+  zweckform('4781 / 3659 / 3659-200', 2, 6, 97, 42.3),
+  zweckform('6174 / 3652 / 3652-200', 3, 7, 70, 42.3),
+  zweckform('3490 / 3475 / 3475-200', 3, 8, 70, 36),
+  zweckform('4780 / 3657 / 3657-200', 4, 10, 48.5, 25.4),
+  zweckform('4785 / 3667 / 3667-200', 4, 16, 48.5, 16.9),
+  zweckform('6121 / 3666 / 3666-200', 5, 13, 38, 21.2),
   { id: 'avery-l7651', name: 'Avery L7651 – 38.1 × 21.2 mm, 65 per sheet', pageWidthMm: 210, pageHeightMm: 297, cols: 5, rows: 13, labelWidthMm: 38.1, labelHeightMm: 21.2, marginTopMm: 10.7, marginLeftMm: 4.75, pitchXMm: 40.64, pitchYMm: 21.2 },
   { id: 'avery-l4736', name: 'Avery L4736 – 45.7 × 21.2 mm, 48 per sheet', pageWidthMm: 210, pageHeightMm: 297, cols: 4, rows: 12, labelWidthMm: 45.7, labelHeightMm: 21.2, marginTopMm: 21.6, marginLeftMm: 9.85, pitchXMm: 48.26, pitchYMm: 21.2 },
   { id: 'avery-l4732', name: 'Avery L4732 – 35.6 × 16.9 mm, 80 per sheet', pageWidthMm: 210, pageHeightMm: 297, cols: 5, rows: 16, labelWidthMm: 35.6, labelHeightMm: 16.9, marginTopMm: 13.5, marginLeftMm: 11.0, pitchXMm: 38.1, pitchYMm: 16.9 },
