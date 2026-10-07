@@ -24,17 +24,20 @@ change; updates migrate it automatically, but keep backups. Open: a German UI. S
 ## Features
 
 - Quotes with multiple plates, printers and filaments per plate, extras, a part planner, and a printable offer
+- Transparent calculation: every cost with its formula and inputs, a bar of the cost shares, profit and margin
 - Import print time and grams from slicer files (PrusaSlicer, OrcaSlicer, Bambu Studio, Cura; G-code, binary G-code, 3MF)
 - Compare a quote across pricing profiles and printers
-- Pricing profiles: components, failure allowance, markup, minimum price, rounding, optional VAT
+- Pricing profiles: components, failure allowance, markup, quantity discounts, minimum price, rounding, optional VAT;
+  or set a target price and see the resulting profit
 - Filament price based on recent purchases or a manual price list
-- Machine cost per hour, including a reserve for your next printer; maintenance reminders by print hours
+- Machine cost per hour, including a reserve for your next printer (with progress and forecast); maintenance reminders by print hours
 - Filament price history per product line
 - Inventory: manufacturers, product lines, colors, purchases (incl. bundles and big spools), spools with their kind of
   empty spool, weigh-ins, low-stock list, and a color overview for picking filament
 - Printable QR spool labels (PDF for common A4 label sheets): scan a spool with the phone camera to set it up or weigh it
 - Print log: deducts filament from spools, tracks printer hours and your real failure rate; prints can be detected
-  automatically via [Home Assistant](docs/home-assistant.md) (OctoPrint), and past prints imported from OctoPrint's history
+  [automatically via Home Assistant](docs/import-prints.md) (OctoPrint, PrusaLink, Bambu Lab), and past prints
+  [imported](docs/import-prints.md#past-prints) from OctoPrint, Klipper/Moonraker or any CSV
 - Statistics: spend, prints, hours and filament per month, by material, color and brand, next to the printers' own counters
 - Demo data to try everything without entering your own
 - Local-first storage (IndexedDB) with JSON export/import and optional sync (GitHub, more adapters later)
@@ -77,7 +80,8 @@ Every push to `main` is tested and deployed to GitHub Pages by
 - [Requirements](docs/requirements.md)
 - [Implementation plan](docs/implementation-plan.md)
 - [Analysis of the original Excel model](docs/excel-analysis.md)
-- [Detect prints with Home Assistant](docs/home-assistant.md)
+- [Import prints](docs/import-prints.md): live via Home Assistant, and past prints
+- [Home Assistant setup](docs/home-assistant.md)
 
 ## Feedback
 
