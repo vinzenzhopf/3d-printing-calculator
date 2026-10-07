@@ -169,6 +169,9 @@ export function createDemoDocument(today: IsoDate, now = new Date()): AppDocumen
     { source: 'Printer statistics menu', asOf: today, since: null, printHours: 1610 + hours('demo-mk4s', day(-40)) },
     { source: 'OctoPrint', asOf: today, since: day(-365), prints: doc.printJobs.filter((j) => j.printerId === 'demo-mk4s').length, printHours: hours('demo-mk4s') },
   ];
+  doc.printers[1]!.usageStats = [
+    { source: 'Printer statistics menu', asOf: today, since: day(-300), prints: doc.printJobs.filter((j) => j.printerId === 'demo-xl' && j.date >= day(-300)).length, printHours: hours('demo-xl', day(-300)) },
+  ];
 
   // --- Customers and quotes ------------------------------------------------------------
   doc.customers.push(
@@ -179,7 +182,7 @@ export function createDemoDocument(today: IsoDate, now = new Date()): AppDocumen
   );
   const f = (color: string) => doc.filaments.find((x) => x.color === color)!.id;
   const quotes: [string, string | undefined, QuoteStatus, number, Quote['plates']][] = [
-    ['Sensor housings (10×)', 'demo-c-club', 'paid', -150, [
+    ['Sensor housings (10×)', 'demo-c-space', 'paid', -150, [
       { id: id('pl'), name: 'Housing bottoms', printerId: 'demo-mk4s', printTimeMin: 410, runs: 2, parts: [{ name: 'Bottom', quantity: 5 }], filaments: [{ filamentId: f('Galaxy Black'), weightG: 182 }] },
       { id: id('pl'), name: 'Housing lids', printerId: 'demo-mk4s', printTimeMin: 260, runs: 2, parts: [{ name: 'Lid', quantity: 5 }], filaments: [{ filamentId: f('Prusa Orange'), weightG: 96 }] },
     ]],
@@ -204,6 +207,8 @@ export function createDemoDocument(today: IsoDate, now = new Date()): AppDocumen
     const quote: Quote = {
       id: id('q'), number: i + 1, title, date: day(offset), pricingProfileId: customer?.defaultPricingProfileId ?? 'standard', status: 'draft', plates,
       extras: [{ id: id('x'), kind: 'item', description: 'Packaging', quantity: 1, unitCost: 1.5 }],
+      // The sensor housings are sold by the piece: the part prices set the price, the plates the cost.
+      ...(title.startsWith('Sensor housings') ? { requiredParts: [{ name: 'Bottom', quantity: 10, price: 4.9 }, { name: 'Lid', quantity: 10, price: 2.9 }] } : {}),
       ...(customer ? { customerId: customer.id } : {}),
       ...(customer?.discountPercent ? { discountPercent: customer.discountPercent } : {}),
     };

@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { machineRate, reserveRatePerHour, type MachineRate } from '../../core/calc/machine-rate';
 import type { AppDocument, BaseMaterial, MachineCost, MaintenanceTask, PlannedInvestment, Printer } from '../../core/model';
 import { maintenanceStatus, markDone } from '../../core/maintenance';
+import { reserveProgress, type ReserveProgress } from '../../core/reserves';
 import { jobStats } from '../../core/print-log';
 import { StoreController } from '../../state/app-store';
 import { store } from '../../state/store-instance';
@@ -287,6 +288,7 @@ export class PrintersPage extends LitElement {
     const set = (id: string, mutate: (x: PlannedInvestment) => void) =>
       this.#update((doc) => mutate(doc.plannedInvestments.find((x) => x.id === id)!));
     const printerOptions: Option[] = [{ value: '', label: '–' }, ...this.#doc.printers.map((p) => ({ value: p.id, label: p.name }))];
+    const progress = new Map(reserveProgress(this.#doc, asOf).map((p) => [p.investmentId, p]));
     return html`
       <h2 class="h4 mt-4">Replacement reserves</h2>
       <p class="text-body-secondary small">
@@ -312,6 +314,7 @@ export class PrintersPage extends LitElement {
             <div class="col-md-4">
               ${numberField('Already reserved', plan.alreadyReserved, (v) => set(plan.id, (x) => (x.alreadyReserved = v)), { suffix: cur, min: 0 })}
               <div class="fs-5">Rate: <strong>${rate === null ? 'per printer' : `${money(rate, cur, 3)}/h`}</strong></div>
+              ${this.#reserveProgress(progress.get(plan.id))}
               <button class="btn btn-sm btn-outline-danger mt-3" @click=${() => this.#update((doc) => (doc.plannedInvestments = doc.plannedInvestments.filter((x) => x.id !== plan.id)))}>Delete reserve</button>
             </div>
           </div>
@@ -321,6 +324,23 @@ export class PrintersPage extends LitElement {
         id: newId(), name: 'Next printer', printerId: null, targetAmount: 1000, mode: 'lifetime', usefulLifeYears: 5, alreadyReserved: 0,
       }))}>Add reserve</button>
     `;
+  }
+
+  /** How much of the reserve is collected: set aside by hand + charged in delivered/paid quotes, and the pace. */
+  #reserveProgress(p: ReserveProgress | undefined) {
+    if (!p || p.target <= 0) return nothing;
+    const cur = this.#doc.settings.currency;
+    const pct = Math.min(p.share, 1) * 100;
+    return html`<div class="mt-2 small">
+      <div class="d-flex justify-content-between"><span><strong>${money(p.collected, cur, 0)}</strong> of ${money(p.target, cur, 0)}</span><span>${percent(p.share)}</span></div>
+      <div class="progress my-1" style="height: 8px" role="progressbar" aria-label="Reserve collected" aria-valuenow=${pct} aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: ${pct}%"></div></div>
+      <div class="text-body-secondary">
+        ${money(p.alreadyReserved, cur, 0)} set aside + ${money(p.billed, cur, 0)} charged in ${p.quotes} delivered/paid quote${p.quotes === 1 ? '' : 's'}.
+        ${p.share >= 1 ? html`<strong>Target reached.</strong>`
+          : p.eta ? html`At ${money(p.perMonth, cur, 0)} per month, reached around <strong>${p.eta.slice(0, 7)}</strong>.`
+          : 'No pace yet: it shows once quotes with a reserve share are delivered or paid.'}
+      </div>
+    </div>`;
   }
 
   #materialProfiles() {
