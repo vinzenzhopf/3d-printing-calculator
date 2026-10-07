@@ -6,7 +6,7 @@ import { nextLabelNumber } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellText, numberField, selectField, switchField, textField, type Option } from '../../fields';
-import { newId } from '../../format';
+import { newId, num } from '../../format';
 import { tell } from '../../dialogs';
 
 const CUSTOM = 'custom';
@@ -117,6 +117,14 @@ export class SpoolSetup extends LitElement {
           ? textField('Link in the QR code', this.baseUrl, (v) => (this.baseUrl = v || `${location.origin}${location.pathname}`), { help: 'The app address the phone opens. Keep the default unless you host the app elsewhere; a short address makes a smaller QR code.' })
           : nothing}
         ${switchField('Test print: draw label outlines', this.outlines, (v) => (this.outlines = v), { help: 'Print on plain paper and hold it against a label sheet to check the alignment. Set the printer to 100 % / actual size.' })}
+        <div class="row g-2 mb-1">
+          <div class="col-6 col-md-3">${numberField('Printer offset down', doc.settings.labelOffsetYMm ?? 0, (v) => void this.#update((d) => (v ? (d.settings.labelOffsetYMm = v) : delete d.settings.labelOffsetYMm)), { suffix: 'mm', step: 0.1 })}</div>
+          <div class="col-6 col-md-3">${numberField('Printer offset right', doc.settings.labelOffsetXMm ?? 0, (v) => void this.#update((d) => (v ? (d.settings.labelOffsetXMm = v) : delete d.settings.labelOffsetXMm)), { suffix: 'mm', step: 0.1 })}</div>
+          <div class="col-md-6 form-text">
+            If your printer prints off-position, move everything by this much (negative = up/left). Measure on the test
+            print how far the QR code sits from where it should be: it should start ${num(labelArtwork(layout, 'L0000').pad, 1)} mm inside the label edge.
+          </div>
+        </div>
         <div class="d-flex flex-wrap gap-3 align-items-center">
           ${this.#preview(layout, labelCode(first))}
           <div>
@@ -153,7 +161,8 @@ export class SpoolSetup extends LitElement {
 
   #download(layout: LabelLayout, first: number, count: number) {
     const codes = labelCodes(first, count);
-    const pdf = buildLabelPdf({ layout, codes, urlFor: (c) => this.#url(c), startAt: this.startAt - 1, caption: this.#caption || undefined, outlines: this.outlines });
+    const pdf = buildLabelPdf({ layout, codes, urlFor: (c) => this.#url(c), startAt: this.startAt - 1, caption: this.#caption || undefined, outlines: this.outlines,
+      offsetXMm: this.#doc.settings.labelOffsetXMm, offsetYMm: this.#doc.settings.labelOffsetYMm });
     const url = URL.createObjectURL(new Blob([pdf.slice()], { type: 'application/pdf' }));
     const name = this.outlines ? `labels-test-${codes[0]}.pdf` : `labels-${codes[0]}-${codes.at(-1)}.pdf`;
     Object.assign(document.createElement('a'), { href: url, download: name }).click();

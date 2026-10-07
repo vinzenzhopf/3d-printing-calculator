@@ -64,6 +64,16 @@ describe('PDF', () => {
     expect(out.match(/\(Spool\) Tj/g)).toHaveLength(70);
   });
 
+  it('moves everything by the printer offset', () => {
+    const l = LABEL_LAYOUTS[0]!;
+    const textPos = (out: string) => /([\d.]+) ([\d.]+) Td \(L0001\) Tj/.exec(out)!.slice(1).map(Number) as [number, number];
+    const plain = textPos(text(buildLabelPdf({ layout: l, codes: ['L0001'], urlFor: (c) => c })));
+    const moved = textPos(text(buildLabelPdf({ layout: l, codes: ['L0001'], urlFor: (c) => c, offsetYMm: 3.7, offsetXMm: -1 })));
+    const pt = 72 / 25.4;
+    expect(plain[1] - moved[1]).toBeCloseTo(3.7 * pt, 1); // PDF y grows upwards: down on paper = smaller y
+    expect(moved[0] - plain[0]).toBeCloseTo(-1 * pt, 1);
+  });
+
   it('stacks a multi-line caption below the code, inside the label and next to the QR code', () => {
     const l = LABEL_LAYOUTS[0]!; // 48.5 × 25.5 mm
     const art = labelArtwork(l, 'L0042', '3D-Print-Calc\n3dp.example.com\n\n');

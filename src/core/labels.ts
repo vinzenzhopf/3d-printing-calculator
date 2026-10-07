@@ -120,6 +120,12 @@ export interface LabelPdfOptions {
   caption?: string;
   /** Draw label borders, for a test print on plain paper. */
   outlines?: boolean;
+  /**
+   * Printer correction in mm, applied to everything on the page (codes, texts,
+   * outlines): positive moves down/right. For printers that print off-position.
+   */
+  offsetXMm?: number;
+  offsetYMm?: number;
 }
 
 const MM_PER_PT = 25.4 / 72;
@@ -186,7 +192,8 @@ export function buildLabelPdf(opts: LabelPdfOptions): Uint8Array {
   const pages: PdfPage[] = [];
 
   opts.codes.forEach((code, i) => {
-    const pos = positions[i]!;
+    const at = positions[i]!;
+    const pos = { ...at, xMm: at.xMm + (opts.offsetXMm ?? 0), yMm: at.yMm + (opts.offsetYMm ?? 0) };
     while (pages.length <= pos.page) pages.push(pdf.addPage());
     const page = pages[pos.page]!;
     if (opts.outlines) page.outline(pos.xMm, pos.yMm, layout.labelWidthMm, layout.labelHeightMm);
