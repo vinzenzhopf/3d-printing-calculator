@@ -16,6 +16,10 @@ const CONFIG_KEY = '3dpc.sync.config';
 const TOKEN_KEY = '3dpc.sync.token';
 const BASE_KEY = '3dpc.sync.base';
 const AUTO_SYNC_DELAY_MS = 30_000;
+/** Inbox file contents by git blob sha: a sha never changes content, so only new files are downloaded. */
+const INBOX_CACHE_KEY = '3dpc.inbox.cache';
+/** Parallel downloads when loading the inbox (GitHub dislikes bursts). */
+const INBOX_PARALLEL = 6;
 /** Folder in the sync repo where Home Assistant drops detected prints (see docs/home-assistant.md). */
 export const INBOX_DIR = 'print-inbox';
 
@@ -173,15 +177,26 @@ export class SyncManager extends EventTarget {
     const gh = this.#github;
     if (!gh) return [];
     const files = (await gh.listFiles(INBOX_DIR)).filter((f) => f.path.endsWith('.json'));
-    return Promise.all(
-      files.map(async (f) => {
+    const cache = readInboxCache();
+    const items: InboxItem[] = new Array(files.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < files.length) {
+        const i = next++;
+        const f = files[i]!;
         try {
-          return { ...f, entry: parseInboxEntry(f.path, await gh.readJson(f.path)) };
+          const raw = f.sha in cache ? cache[f.sha] : (cache[f.sha] = await gh.readJson(f.path));
+          items[i] = { ...f, entry: parseInboxEntry(f.path, raw) };
         } catch {
-          return { ...f, entry: null };
+          items[i] = { ...f, entry: null };
         }
-      }),
-    );
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(INBOX_PARALLEL, files.length) }, worker));
+    // Keep only what is still in the inbox.
+    const live = new Set(files.map((f) => f.sha));
+    safe.set(local, INBOX_CACHE_KEY, JSON.stringify(Object.fromEntries(Object.entries(cache).filter(([sha]) => live.has(sha)))));
+    return items;
   }
 
   /** Removes a processed (logged or dismissed) inbox file. */
@@ -195,5 +210,14 @@ export class SyncManager extends EventTarget {
 
   #emit(): void {
     this.dispatchEvent(new Event('change'));
+  }
+}
+
+function readInboxCache(): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(safe.get(local, INBOX_CACHE_KEY) ?? '{}') as unknown;
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
   }
 }
