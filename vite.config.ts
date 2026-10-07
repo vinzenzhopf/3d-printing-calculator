@@ -31,6 +31,11 @@ export default defineConfig({
   // (GitHub Pages project site, a VPS folder, or a local file server).
   base: './',
   plugins: [serviceWorker()],
+  // Shown under Settings → About, so problem reports can name the exact build.
+  define: {
+    __APP_COMMIT__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'),
+    __APP_BUILT__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   build: {
     target: 'es2022',
     sourcemap: true,

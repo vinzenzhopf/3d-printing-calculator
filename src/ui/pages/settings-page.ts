@@ -58,7 +58,7 @@ export class SettingsPage extends LitElement {
         : tab === 'data'
           ? html`<div class="row g-3">
               <div class="col-lg-6"><sync-settings></sync-settings></div>
-              <div class="col-lg-6">${this.#data()}</div>
+              <div class="col-lg-6">${this.#data()} ${this.#about()}</div>
             </div>`
           : html`<div class="row g-3">
               <div class="col-lg-6">${this.#general(s)}</div>
@@ -180,6 +180,32 @@ export class SettingsPage extends LitElement {
           Printing labels (Filaments → Spool setup) advances it. Lower it to reprint numbers you never stuck on a spool,
           e.g. after a misprint.
         </p>
+      </section>
+    `;
+  }
+
+  #about() {
+    const repo = 'https://github.com/vinzenzhopf/3d-printing-calculator';
+    const commit = __APP_COMMIT__;
+    return html`
+      <section class="card card-body mt-3">
+        <h2 class="h5 mb-3">About</h2>
+        <p class="text-body-secondary small">
+          Open source (MIT), vibe-coded with an AI assistant: check the numbers before you send a quote. Your data never
+          goes to the project, only to this browser and your own sync repository.
+        </p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <a class="btn btn-outline-primary" href=${repo} target="_blank" rel="noopener noreferrer">Source code</a>
+          <a class="btn btn-outline-primary" href="${repo}/issues/new" target="_blank" rel="noopener noreferrer">Report a problem or idea</a>
+          <a class="btn btn-link" href="${repo}/blob/main/docs/home-assistant.md" target="_blank" rel="noopener noreferrer">Home Assistant guide</a>
+          <a class="btn btn-link" href="${repo}/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a>
+        </div>
+        <div class="small text-body-secondary">
+          Version: ${commit === 'dev'
+            ? 'development build'
+            : html`<a href="${repo}/commit/${commit}" target="_blank" rel="noopener noreferrer"><code>${commit}</code></a>`}
+          · built ${__APP_BUILT__}. Please mention it when you report a problem.
+        </div>
       </section>
     `;
   }
