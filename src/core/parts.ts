@@ -1,4 +1,4 @@
-import type { Plate, Quote } from './model';
+import type { CostSplit, Plate, Quote } from './model';
 
 /** Parts one run of a plate produces: its part list, else the simple count (default 1). */
 export function partsPerRun(plate: Plate): number {
@@ -39,4 +39,62 @@ export function planParts(quote: Quote): PartPlanRow[] {
     });
   for (const extra of planned.values()) rows.push({ name: extra.name, required: 0, planned: extra.count, diff: extra.count });
   return rows;
+}
+
+export interface PlateSplit {
+  mode: CostSplit | 'even';
+  /** Share of one run's cost per piece, for each entry of the plate's part list. */
+  each: number[];
+  warnings: string[];
+}
+
+export const SPLIT_LABEL: Record<PlateSplit['mode'], string> = { even: 'evenly', grams: 'by grams', percent: 'by percent', cost: 'by cost' };
+
+/**
+ * Spreads one run's cost of a plate over the pieces on its part list (QC-3):
+ * evenly, by grams or percent per piece (normalized to the run's cost), or by
+ * a cost per piece (pieces without one share the rest evenly). The pieces
+ * always add up to `runCost`.
+ */
+export function splitPlateCost(plate: Plate, runCost: number): PlateSplit {
+  const parts = plate.parts ?? [];
+  const mode = plate.costSplit ?? 'even';
+  const warnings: string[] = [];
+  const pieces = parts.reduce((sum, p) => sum + p.quantity, 0);
+  const evenly = (): PlateSplit => ({ mode, each: parts.map(() => (pieces > 0 ? runCost / pieces : 0)), warnings });
+  const sum = (value: (p: (typeof parts)[number]) => number) => parts.reduce((s, p) => s + value(p) * p.quantity, 0);
+  const named = (list: typeof parts) => list.map((p) => p.name || '(unnamed)').join(', ');
+
+  if (mode === 'grams' || mode === 'percent') {
+    const value = (p: (typeof parts)[number]) => Math.max((mode === 'grams' ? p.grams : p.percent) ?? 0, 0);
+    const total = sum(value);
+    const missing = parts.filter((p) => !(value(p) > 0));
+    if (total <= 0) {
+      warnings.push(`no ${mode === 'grams' ? 'grams' : 'percentages'} per part yet, split evenly.`);
+      return evenly();
+    }
+    if (missing.length) warnings.push(`${named(missing)} without ${mode === 'grams' ? 'grams' : 'percentage'}, counted as 0.`);
+    if (mode === 'percent' && Math.abs(total - 100) > 0.01) warnings.push(`the part shares add up to ${round2(total)} %, scaled to 100 %.`);
+    return { mode, each: parts.map((p) => (runCost * value(p)) / total), warnings };
+  }
+
+  if (mode === 'cost') {
+    const set = (p: (typeof parts)[number]) => p.cost !== undefined && p.cost >= 0;
+    const fixed = sum((p) => (set(p) ? p.cost! : 0));
+    const rest = parts.filter((p) => !set(p)).reduce((s, p) => s + p.quantity, 0);
+    if (fixed > runCost + 0.005) {
+      warnings.push(`the part costs (${fixed.toFixed(2)}) exceed the plate's cost per run (${runCost.toFixed(2)}), scaled down.`);
+      return { mode, each: parts.map((p) => (set(p) ? (p.cost! * runCost) / fixed : 0)), warnings };
+    }
+    if (rest > 0) return { mode, each: parts.map((p) => (set(p) ? p.cost! : (runCost - fixed) / rest)), warnings };
+    if (fixed <= 0) return evenly();
+    if (fixed < runCost - 0.005) warnings.push(`the part costs (${fixed.toFixed(2)}) are below the plate's cost per run (${runCost.toFixed(2)}), scaled up.`);
+    return { mode, each: parts.map((p) => (p.cost! * runCost) / fixed), warnings };
+  }
+
+  return evenly();
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

@@ -2,6 +2,7 @@ import { html, nothing, type TemplateResult } from 'lit';
 import type { PlateExplain, QuoteResult } from '../../../core/calc/quote';
 import type { AppDocument } from '../../../core/model';
 import { formatDuration } from '../../../core/duration';
+import { SPLIT_LABEL } from '../../../core/parts';
 import { money, num, percent } from '../../format';
 import { SOURCE_LABEL, filamentOptions } from '../filaments/labels';
 
@@ -144,6 +145,9 @@ export function quoteBreakdown(doc: AppDocument, r: QuoteResult): TemplateResult
             <td class="text-end">${p.parts ? m(p.pricePerPart) : '–'}</td>
           </tr>`)}</tbody>
         </table>
+        ${r.plates.filter((p) => p.split && p.split.mode !== 'even').map((p) => html`<div class="text-body-secondary small">
+          ${p.name}: cost split ${SPLIT_LABEL[p.split!.mode]}, per piece ${p.split!.parts.map((x) => `${x.name || '(unnamed)'} ${m(x.each)}`).join(', ')}
+          (share of one run, before failure allowance and extras).</div>`)}
         <div class="text-body-secondary small">Plates share the price by their cost. Print time ${formatDuration(r.printHours * 60)} h, ${num(r.plates.reduce((s, p) => s + p.filamentG, 0))} g filament.</div>`
       : nothing}
   `;

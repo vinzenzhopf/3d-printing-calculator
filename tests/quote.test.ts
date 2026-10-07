@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { calculateQuote } from '../src/core/calc/quote';
+import { calculateQuote, type QuoteResult } from '../src/core/calc/quote';
 import { createEmptyDocument } from '../src/core/document';
-import type { AppDocument, PowerProfile, PricingProfile, Quote } from '../src/core/model';
+import type { AppDocument, PartCount, Plate, PowerProfile, PricingProfile, Quote } from '../src/core/model';
 import fixture from './fixtures/legacy-quotes.json';
 
 const asOf = '2026-10-01';
@@ -139,6 +139,63 @@ describe('pricing steps', () => {
     const unpriced = calculateQuote(doc({ markup: 1 }), quote({ plates, requiredParts: [{ name: 'Start', quantity: 1, price: 6 }, { name: 'Middle', quantity: 3 }] }), asOf);
     expect(unpriced.warnings).toEqual(expect.arrayContaining(['Not enough planned: Middle.', 'No price yet: Middle (counted as 0).']));
     expect(calculateQuote(doc({ markup: 1 }), quote({ plates, requiredParts: [{ name: 'Start', quantity: 1 }] }), asOf).explain?.target).toBeNull();
+  });
+
+  describe('cost split per plate', () => {
+    // One plate (10 € per run, no overhead): 2 × "Big" + 2 × "Small" per run, 2 runs.
+    const split = (costSplit: Plate['costSplit'], parts: PartCount[]) => {
+      const plates: Quote['plates'] = [{ id: 'p1', name: 'Plate 1', printerId: 'pr', printTimeMin: 0, runs: 2, parts, filaments: [{ filamentId: 'a', weightG: 500 }], ...(costSplit ? { costSplit } : {}) }];
+      const r = calculateQuote(doc({ markup: 1 }), quote({ plates }), asOf);
+      return { r, each: r.parts!.map((p) => p.costEach), warnings: r.warnings.filter((w) => !w.includes('power profile')) };
+    };
+    const big = { name: 'Big', quantity: 2 };
+    const small = { name: 'Small', quantity: 2 };
+    const total = (r: QuoteResult) => r.parts!.reduce((sum, p) => sum + p.costEach! * p.planned, 0);
+
+    it('splits evenly by default, also when values are set but no mode', () => {
+      const { r, each, warnings } = split(undefined, [{ ...big, grams: 30 }, { ...small, grams: 10 }]);
+      expect(each).toEqual([2.5, 2.5]);
+      expect(r.plates[0]!.split?.mode).toBe('even');
+      expect(warnings).toEqual([]);
+    });
+
+    it('splits by grams per piece', () => {
+      const { r, each, warnings } = split('grams', [{ ...big, grams: 30 }, { ...small, grams: 10 }]);
+      expect(each.map((c) => c!.toFixed(2))).toEqual(['3.75', '1.25']);
+      expect(total(r)).toBeCloseTo(r.cost, 6);
+      expect(warnings).toEqual([]);
+      // Missing grams count as 0; none at all falls back to evenly.
+      expect(split('grams', [{ ...big, grams: 30 }, small]).warnings).toEqual(['Plate 1: Small without grams, counted as 0.']);
+      expect(split('grams', [big, small]).each).toEqual([2.5, 2.5]);
+    });
+
+    it('splits by percent per piece, normalized to 100 %', () => {
+      expect(split('percent', [{ ...big, percent: 40 }, { ...small, percent: 10 }]).each.map((c) => c!.toFixed(2))).toEqual(['4.00', '1.00']);
+      const off = split('percent', [{ ...big, percent: 30 }, { ...small, percent: 10 }]);
+      expect(off.each.map((c) => c!.toFixed(2))).toEqual(['3.75', '1.25']);
+      expect(total(off.r)).toBeCloseTo(off.r.cost, 6);
+      expect(off.warnings).toEqual(['Plate 1: the part shares add up to 80 %, scaled to 100 %.']);
+    });
+
+    it('splits by cost per piece, the rest evenly over parts without one', () => {
+      // 10 € per run: Big 2 € each, the remaining 6 € shared by the two Small.
+      const { r, each, warnings } = split('cost', [{ ...big, cost: 2 }, small]);
+      expect(each.map((c) => c!.toFixed(2))).toEqual(['2.00', '3.00']);
+      expect(total(r)).toBeCloseTo(r.cost, 6);
+      expect(warnings).toEqual([]);
+      const over = split('cost', [{ ...big, cost: 2 }, { ...small, cost: 4 }]);
+      expect(over.each.map((c) => c!.toFixed(2))).toEqual(['1.67', '3.33']);
+      expect(over.warnings).toEqual(["Plate 1: the part costs (12.00) exceed the plate's cost per run (10.00), scaled down."]);
+      const under = split('cost', [{ ...big, cost: 1 }, { ...small, cost: 0.25 }]);
+      expect(under.each.map((c) => c!.toFixed(2))).toEqual(['4.00', '1.00']);
+      expect(under.warnings).toEqual(["Plate 1: the part costs (2.50) are below the plate's cost per run (10.00), scaled up."]);
+    });
+
+    it('changes only the split, not the quote', () => {
+      const even = split(undefined, [big, small]).r;
+      const grams = split('grams', [{ ...big, grams: 30 }, { ...small, grams: 10 }]).r;
+      expect([grams.cost, grams.net, grams.plates[0]!.cost]).toEqual([even.cost, even.net, even.plates[0]!.cost]);
+    });
   });
 
   it('counts no parts for a plate without filament', () => {

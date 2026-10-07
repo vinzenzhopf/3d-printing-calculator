@@ -1,5 +1,5 @@
 import type { AppDocument, Id, IsoDate, PricingProfile, QuantityTier, Quote } from '../model';
-import { partsPerRun, planParts } from '../parts';
+import { partsPerRun, planParts, splitPlateCost, type PlateSplit } from '../parts';
 import { machineRate } from './machine-rate';
 import { computePlateCost, type CostBreakdown, type EnergyDetail, type FilamentRow } from './plate-cost';
 import { resolveFilamentPrice, type PriceSource } from './price-resolution';
@@ -26,6 +26,8 @@ export interface PlateResult extends CostParts {
   pricePerPart: number;
   /** The inputs behind each cost, for showing the calculation. Missing in snapshots frozen by older versions. */
   explain?: PlateExplain;
+  /** How the cost is spread over the part list (cost per piece before overhead). Missing without a part list and in older snapshots. */
+  split?: { mode: PlateSplit['mode']; parts: { name: string; quantity: number; each: number }[] };
 }
 
 export interface PlateExplain {
@@ -103,9 +105,10 @@ export interface QuoteResult {
 }
 
 /**
- * One part of the part planner. The cost of a plate is spread evenly over the
- * pieces it produces, and the quote's other costs (failure allowance, extra
- * labor, items) proportionally on top, so the pieces add up to the total cost.
+ * One part of the part planner. The cost of a plate is spread over the pieces
+ * it produces (evenly or per its `costSplit`, see splitPlateCost), and the
+ * quote's other costs (failure allowance, extra labor, items) proportionally
+ * on top, so the pieces add up to the total cost.
  */
 export interface PartEconomics {
   name: string;
@@ -240,6 +243,7 @@ function calculate(doc: AppDocument, quote: Quote, profile: PricingProfile, asOf
       price: 0,
       pricePerPart: 0,
       explain,
+      ...(plate.parts?.length && plate.runs > 0 ? { split: plateSplit(plate, cost.total / plate.runs, warnings) } : {}),
     });
   }
 
@@ -359,13 +363,11 @@ function partEconomics(quote: Quote, plates: PlateResult[], overhead: number): P
   const key = (name: string) => name.trim().toLowerCase();
   const costOf = new Map<string, number>();
   quote.plates.forEach((plate) => {
-    const result = plates.find((p) => p.plateId === plate.id);
-    const perRun = (plate.parts ?? []).reduce((sum, p) => sum + p.quantity, 0);
-    if (!result || !perRun || plate.runs <= 0) return;
-    const perPiece = (result.cost * overhead) / (perRun * plate.runs);
-    for (const part of plate.parts ?? []) {
+    const split = plates.find((p) => p.plateId === plate.id)?.split;
+    if (!split) return;
+    for (const part of split.parts) {
       const k = key(part.name);
-      if (k) costOf.set(k, (costOf.get(k) ?? 0) + perPiece * part.quantity * plate.runs);
+      if (k) costOf.set(k, (costOf.get(k) ?? 0) + part.each * overhead * part.quantity * plate.runs);
     }
   });
   const prices = new Map((quote.requiredParts ?? []).map((r) => [key(r.name), r.price]));
@@ -375,6 +377,12 @@ function partEconomics(quote: Quote, plates: PlateResult[], overhead: number): P
     const p = price !== undefined && price > 0 ? price : null;
     return { name: r.name, required: r.required, planned: r.planned, price: p, costEach, profitEach: p !== null && costEach !== null ? p - costEach : null };
   });
+}
+
+function plateSplit(plate: Quote['plates'][number], runCost: number, warnings: string[]): NonNullable<PlateResult['split']> {
+  const split = splitPlateCost(plate, runCost);
+  warnings.push(...split.warnings.map((w) => `${plate.name}: ${w}`));
+  return { mode: split.mode, parts: (plate.parts ?? []).map((p, i) => ({ name: p.name, quantity: p.quantity, each: split.each[i]! })) };
 }
 
 function round6(n: number): number {

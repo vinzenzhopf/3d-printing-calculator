@@ -344,7 +344,14 @@ export interface PartCount {
   quantity: number;
   /** Price per piece, for required parts: the quote's price then follows from the part prices. */
   price?: number;
+  /** Plate parts, per piece, used by the plate's `costSplit`: grams (from the slicer), percent of a run's cost, or cost. */
+  grams?: number;
+  percent?: number;
+  cost?: number;
 }
+
+/** How a plate's cost is spread over its parts; unset = evenly per piece. */
+export type CostSplit = 'grams' | 'percent' | 'cost';
 
 export interface PlateFilament {
   filamentId: Id;
@@ -361,6 +368,8 @@ export interface Plate {
   partsPerRun?: number;
   /** What one run produces, by part name (QC-3). */
   parts?: PartCount[];
+  /** Splits the plate's cost over `parts` by their grams, percent or cost; unset = evenly. */
+  costSplit?: CostSplit;
   filaments: PlateFilament[];
   /** Multi-material purge/wipe for the whole plate as reported by the slicer, grams. */
   purgeG?: number;

@@ -199,7 +199,9 @@ export function createDemoDocument(today: IsoDate, now = new Date()): AppDocumen
       { id: id('pl'), name: 'Badges', printerId: 'demo-xl', printTimeMin: 150, runs: 2, partsPerRun: 15, filamentChanges: 30, filaments: [{ filamentId: f('Azure Blue'), weightG: 40 }, { filamentId: f('Signal White'), weightG: 18 }] },
     ]],
     ['Lamp shade prototype', undefined, 'draft', -1, [
-      { id: id('pl'), name: 'Shade', printerId: 'demo-mk4s', printTimeMin: 600, runs: 1, partsPerRun: 1, filaments: [{ filamentId: f('Clear'), weightG: 210 }] },
+      // Shade and socket rings on one plate: the cost is split by the grams per object from the slicer.
+      { id: id('pl'), name: 'Shade + rings', printerId: 'demo-mk4s', printTimeMin: 600, runs: 1, costSplit: 'grams', filaments: [{ filamentId: f('Clear'), weightG: 210 }],
+        parts: [{ name: 'Shade', quantity: 1, grams: 168 }, { name: 'Socket ring', quantity: 2, grams: 17.5 }] },
     ]],
   ];
   quotes.forEach(([title, customerId, status, offset, plates], i) => {
@@ -209,6 +211,7 @@ export function createDemoDocument(today: IsoDate, now = new Date()): AppDocumen
       extras: [{ id: id('x'), kind: 'item', description: 'Packaging', quantity: 1, unitCost: 1.5 }],
       // The sensor housings are sold by the piece: the part prices set the price, the plates the cost.
       ...(title.startsWith('Sensor housings') ? { requiredParts: [{ name: 'Bottom', quantity: 10, price: 4.9 }, { name: 'Lid', quantity: 10, price: 2.9 }] } : {}),
+      ...(title.startsWith('Lamp shade') ? { requiredParts: [{ name: 'Shade', quantity: 1 }, { name: 'Socket ring', quantity: 2 }] } : {}),
       ...(customer ? { customerId: customer.id } : {}),
       ...(customer?.discountPercent ? { discountPercent: customer.discountPercent } : {}),
     };

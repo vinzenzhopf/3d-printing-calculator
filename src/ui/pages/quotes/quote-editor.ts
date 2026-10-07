@@ -2,16 +2,16 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { QuoteResult } from '../../../core/calc/quote';
 import { formatDuration, parseDuration } from '../../../core/duration';
-import type { AppDocument, Plate, Quote, QuoteExtra, QuoteStatus } from '../../../core/model';
+import type { AppDocument, CostSplit, Plate, Quote, QuoteExtra, QuoteStatus } from '../../../core/model';
 import { jobFromPlate } from '../../../core/print-log';
 import { QUOTE_STATUSES, compareQuote, createQuote, freezeQuote, quoteResult, quoteSummaryText, setQuoteStatus } from '../../../core/quotes';
 import { StoreController } from '../../../state/app-store';
 import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
-import { money, newId, today } from '../../format';
+import { money, newId, num, today } from '../../format';
 import { pickFilament } from '../../filament-picker';
 import { STATUS_COLOR } from './status';
-import { partsPerRun, planParts } from '../../../core/parts';
+import { SPLIT_LABEL, partsPerRun, planParts, splitPlateCost } from '../../../core/parts';
 import { applyEstimate } from '../../../core/slicer';
 import { DEFAULT_DENSITY, metersToGrams } from '../../../core/stock';
 import { readSlicerFile } from '../../slicer-file';
@@ -19,6 +19,27 @@ import { openPrintLogWith } from '../print-log-page';
 import './quote-offer';
 import { quoteBreakdown } from './quote-breakdown';
 import { ask } from '../../dialogs';
+
+/** The part field each cost split reads, see PartCount. */
+const SPLIT_FIELD: Record<CostSplit, { key: CostSplit; label: (cur: string) => string; step: number }> = {
+  grams: { key: 'grams', label: () => 'g each', step: 0.01 },
+  percent: { key: 'percent', label: () => '% each', step: 0.1 },
+  cost: { key: 'cost', label: (cur) => `${cur} each`, step: 0.01 },
+};
+
+const SPLIT_HELP: Record<keyof typeof SPLIT_LABEL, string> = {
+  even: 'Every piece costs the same.',
+  grams: 'Heavier pieces cost more: enter the grams per object from the slicer.',
+  percent: 'Each piece gets its share of a run; the shares are scaled to 100 %.',
+  cost: 'Cost per piece of one run; pieces left empty share the rest evenly.',
+};
+
+/** "evenly", or how each plate splits its cost, for the planner's note. */
+function splitNote(result: QuoteResult | null): string {
+  const plates = (result?.plates ?? []).filter((p) => p.split);
+  if (plates.every((p) => p.split!.mode === 'even')) return 'evenly';
+  return `per plate (${plates.map((p) => `${p.name}: ${SPLIT_LABEL[p.split!.mode]}`).join('; ')})`;
+}
 
 @customElement('quote-editor')
 export class QuoteEditor extends LitElement {
@@ -178,7 +199,7 @@ export class QuoteEditor extends LitElement {
               ? html`<span class="small ${this.importNote.error ? 'text-danger' : 'text-success'}">${this.importNote.text}</span>`
               : nothing}
           </div>
-          ${this.#partList(plate)}
+          ${this.#partList(plate, r)}
           ${multi
             ? html`<div class="row g-2 mt-1">
                 <div class="col-md-4"><label class="small d-block">Purge / wipe tower (g, from slicer)${cellNumber(plate.purgeG ?? null, (v) => this.#plate(plate.id, (p) => (v === null ? delete p.purgeG : (p.purgeG = v))), { min: 0, allowEmpty: true, title: 'Purge grams' })}</label></div>
@@ -190,24 +211,54 @@ export class QuoteEditor extends LitElement {
     `;
   }
 
-  #partList(plate: Plate) {
+  #partList(plate: Plate, r: QuoteResult['plates'][number] | undefined) {
     const parts = plate.parts ?? [];
     const names = [...new Set((this.#quote?.requiredParts ?? []).map((r) => r.name))];
     const set = (mutate: (p: Plate) => void) => this.#plate(plate.id, mutate);
+    const cur = this.#doc.settings.currency;
+    const mode = plate.costSplit;
+    const field = mode ? SPLIT_FIELD[mode] : null;
+    const split = r && plate.runs > 0 && parts.length ? splitPlateCost(plate, r.cost / plate.runs) : null;
+    const modes: Option[] = [
+      { value: '', label: 'evenly per piece' },
+      { value: 'grams', label: 'by grams per piece' },
+      { value: 'percent', label: 'by percent per piece' },
+      { value: 'cost', label: 'by cost per piece' },
+    ];
+    const total = (key: 'percent' | 'cost') => parts.reduce((sum, p) => sum + (p[key] ?? 0) * p.quantity, 0);
     return html`<details class="mt-2" ?open=${parts.length > 0}>
-      <summary class="small">Parts on this plate${parts.length ? ` (${partsPerRun(plate)} per run)` : ''}</summary>
+      <summary class="small">Parts on this plate${parts.length ? ` (${partsPerRun(plate)} per run, cost split ${SPLIT_LABEL[mode ?? 'even']})` : ''}</summary>
       <datalist id="parts-${plate.id}">${names.map((n) => html`<option value=${n}></option>`)}</datalist>
+      ${parts.length
+        ? html`<label class="small d-flex flex-wrap align-items-center gap-2 mt-1">Split the plate's cost
+            <span style="width: 13rem">${cellSelect(mode ?? '', modes, (v) => set((p) => (v ? (p.costSplit = v as CostSplit) : delete p.costSplit)), true, 'Cost split')}</span>
+            <span class="text-body-secondary">${SPLIT_HELP[mode ?? 'even']}</span>
+          </label>`
+        : nothing}
       <table class="table table-sm align-middle mb-1 mt-1">
+        ${parts.length
+          ? html`<thead><tr class="small"><th>Part</th><th>Per run</th>${field ? html`<th>${field.label(cur)}</th>` : nothing}<th class="text-end" title="Share of one run's cost, before failure allowance and extras">Plate cost each</th><th></th></tr></thead>`
+          : nothing}
         <tbody>
           ${parts.map((part, i) => html`<tr>
             <td><input class="form-control form-control-sm" list="parts-${plate.id}" aria-label="Part name" .value=${part.name}
               @change=${(e: Event) => set((p) => (p.parts![i]!.name = (e.target as HTMLInputElement).value.trim()))} /></td>
             <td style="width: 7rem">${cellNumber(part.quantity, (v) => set((p) => (p.parts![i]!.quantity = v ?? 1)), { min: 1, step: 1, title: 'Quantity per run' })}</td>
-            <td style="width: 2rem"><button class="btn btn-sm btn-link text-danger" title="Remove part" @click=${() => set((p) => { p.parts!.splice(i, 1); if (!p.parts!.length) delete p.parts; })}>✕</button></td>
+            ${field
+              ? html`<td style="width: 8rem">${cellNumber(part[field.key] ?? null, (v) => set((p) => (v === null ? delete p.parts![i]![field.key] : (p.parts![i]![field.key] = v))), { min: 0, step: field.step, allowEmpty: true, placeholder: field.key === 'cost' ? 'rest' : '', title: field.label(cur) })}</td>`
+              : nothing}
+            <td class="text-end small" style="width: 7rem">${split ? money(split.each[i]!, cur) : '–'}</td>
+            <td style="width: 2rem"><button class="btn btn-sm btn-link text-danger" title="Remove part" @click=${() => set((p) => { p.parts!.splice(i, 1); if (!p.parts!.length) { delete p.parts; delete p.costSplit; } })}>✕</button></td>
           </tr>`)}
         </tbody>
       </table>
-      <button class="btn btn-sm btn-outline-secondary" @click=${() => set((p) => (p.parts ??= []).push({ name: '', quantity: 1 }))}>+ Part</button>
+      ${mode === 'percent' || mode === 'cost'
+        ? html`<div class="small text-body-secondary">${mode === 'percent'
+            ? `Shares: ${num(total('percent'), Number.isInteger(total('percent')) ? 0 : 1)} % of 100 %.`
+            : `Assigned: ${money(total('cost'), cur)}${r && plate.runs > 0 ? ` of ${money(r.cost / plate.runs, cur)} per run` : ''}.`}</div>`
+        : nothing}
+      ${split?.warnings.map((w) => html`<div class="small text-warning-emphasis">⚠ ${w.charAt(0).toUpperCase()}${w.slice(1)}</div>`)}
+      <button class="btn btn-sm btn-outline-secondary mt-1" @click=${() => set((p) => (p.parts ??= []).push({ name: '', quantity: 1 }))}>+ Part</button>
     </details>`;
   }
 
@@ -253,7 +304,7 @@ export class QuoteEditor extends LitElement {
               })}
             </tbody>
           </table></div>
-          <div class="small text-body-secondary mt-1">Planned = parts per run × runs, from each plate's part list ("Parts on this plate"). Cost each = the plate's cost spread evenly over the pieces it prints, plus their share of failure allowance, extra work and items. Surplus pieces cost money but are not paid.</div>`
+          <div class="small text-body-secondary mt-1">Planned = parts per run × runs, from each plate's part list ("Parts on this plate"). Cost each = the plate's cost spread ${splitNote(result)} over the pieces it prints, plus their share of failure allowance, extra work and items. Surplus pieces cost money but are not paid.</div>`
         : nothing}
     </section>`;
   }
