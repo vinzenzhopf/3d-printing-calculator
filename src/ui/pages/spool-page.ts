@@ -77,8 +77,10 @@ export class SpoolPage extends LitElement {
             <div class="small text-body-secondary">${s.label} · ${s.status}${s.location ? ` · ${s.location}` : ''}</div>
           </div>
         </div>
-        ${line?.notes || f?.notes || s.note
-          ? html`<div class="card-body pt-0 small" style="white-space: pre-line">${[line?.notes, f?.notes, s.note].filter(Boolean).map((n) => html`<div>📝 ${n}</div>`)}</div>`
+        ${line?.notes || f?.notes || s.note || f?.nozzleC || f?.bedC
+          ? html`<div class="card-body pt-0 small" style="white-space: pre-line">
+              ${f?.nozzleC || f?.bedC ? html`<div>🌡 ${[f.nozzleC ? `Nozzle ${f.nozzleC} °C` : '', f.bedC ? `Bed ${f.bedC} °C` : ''].filter(Boolean).join(' · ')}</div>` : nothing}
+              ${[line?.notes, f?.notes, s.note].filter(Boolean).map((n) => html`<div>📝 ${n}</div>`)}</div>`
           : nothing}
         <div class="card-body pt-0">
           ${g === null
@@ -179,6 +181,8 @@ export class SpoolPage extends LitElement {
               <button class="btn btn-sm btn-outline-secondary text-nowrap" title="Scan the code on the spool" @click=${() => void this.#scanCode(s)}>📷 Scan</button>
               ${/^https?:\/\//.test(s.code ?? '') ? html`<a class="btn btn-sm btn-outline-secondary" href=${s.code!} target="_blank" rel="noopener" title="Open">↗</a>` : nothing}</div></label></div>
           <div class="col-12"><label class="small d-block">Note on this spool${this.#textArea(s.note, (v) => set((x) => (v ? (x.note = v) : delete x.note)), 'Note on this spool')}</label></div>
+          ${f ? html`<div class="col-6"><label class="small d-block">Nozzle °C${cellNumber(f.nozzleC ?? null, (v) => this.#setFilament(f.id, (x) => (v ? (x.nozzleC = v) : delete x.nozzleC)), { min: 0, step: 1, allowEmpty: true, title: 'Nozzle temperature' })}</label></div>
+            <div class="col-6"><label class="small d-block">Bed °C${cellNumber(f.bedC ?? null, (v) => this.#setFilament(f.id, (x) => (v ? (x.bedC = v) : delete x.bedC)), { min: 0, step: 1, allowEmpty: true, title: 'Bed temperature' })}</label></div>` : nothing}
           ${f ? html`<div class="col-12"><label class="small d-block">Notes on ${f.color} (all its spools)${this.#textArea(f.notes, (v) => this.#setFilament(f.id, (x) => (v ? (x.notes = v) : delete x.notes)), 'Filament notes', 'e.g. prints best at 235 °C')}</label></div>` : nothing}
         </div>
         <label class="small d-block mt-2">From purchase${this.#purchaseSelect(s.filamentId, s.purchaseId ?? '', (v) => set((x) => (v ? (x.purchaseId = v) : delete x.purchaseId)), s.id)}</label>

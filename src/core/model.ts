@@ -210,6 +210,11 @@ export interface Filament {
   mergedIds?: Id[];
   /** Free text, e.g. print settings that work well. */
   notes?: string;
+  /** Print temperatures, e.g. from SpoolmanDB. */
+  nozzleC?: number;
+  bedC?: number;
+  /** SpoolmanDB entry it was checked against. */
+  spoolmanId?: string;
 }
 
 /** One physical spool (FI-5). Its stock is the sum of its movements (FI-6). */

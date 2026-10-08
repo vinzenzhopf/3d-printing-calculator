@@ -12,6 +12,7 @@ import { store } from '../../../state/store-instance';
 import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaField, textField, type Option } from '../../fields';
 import { newId, num, today } from '../../format';
 import { BASE_MATERIALS } from '../printers-page';
+import './spoolman-check';
 import { filamentLabel, lineLabel, priceCell } from './labels';
 import { applyColor, colorButton } from '../../color-dialog';
 import { ask, tell } from '../../dialogs';
@@ -44,6 +45,8 @@ export class FilamentCatalog extends LitElement {
   /** Entry being deprecated, with the chosen successor. */
   @state() private deprecating: (CatalogTarget & { successorId: string }) | null = null;
   @state() private merge: MergeDraft | null = null;
+  /** Line being compared with SpoolmanDB. */
+  @state() private checking: string | null = null;
 
   protected override createRenderRoot() {
     return this;
@@ -131,6 +134,9 @@ export class FilamentCatalog extends LitElement {
               ${this.#filamentTable(filaments)}
               <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-sm btn-outline-primary" @click=${() => this.#addFilament(line.id)}>+ Add color</button>
+                <button class="btn btn-sm btn-outline-secondary" title="Compare colors, finish and temperatures with SpoolmanDB" @click=${() => (this.checking = this.checking === line.id ? null : line.id)}>
+                  ${this.checking === line.id ? 'Close SpoolmanDB' : '🔎 Check with SpoolmanDB'}
+                </button>
                 <button class="btn btn-sm btn-outline-secondary" @click=${() => (this.editingLine = editing ? null : line.id)}>
                   ${editing ? 'Done editing line' : 'Edit line'}
                 </button>
@@ -140,6 +146,7 @@ export class FilamentCatalog extends LitElement {
                 <button class="btn btn-sm btn-outline-secondary" title="Duplicate or typo: move everything to another line" @click=${() => this.#openMerge({ kind: 'line', keepId: '', dropId: line.id, mergeIdentical: true })}>Merge line…</button>
               </div>
               ${this.deprecating?.kind === 'line' && this.deprecating.id === line.id ? this.#deprecateForm(this.deprecating) : nothing}
+              ${this.checking === line.id ? html`<spoolman-check .lineId=${line.id}></spoolman-check>` : nothing}
               ${editing ? this.#lineEditor(line) : nothing}
             </div>`
           : nothing}

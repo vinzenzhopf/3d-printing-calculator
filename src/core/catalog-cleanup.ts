@@ -95,7 +95,7 @@ export interface MergePreview {
   carriedOver: string[];
 }
 
-const CARRY_FILAMENT = ['colorHex', 'colorHex2', 'finish', 'link', 'asin', 'manualPrice', 'lowStockG', 'notes', 'predecessorId', 'successorId'] as const;
+const CARRY_FILAMENT = ['colorHex', 'colorHex2', 'finish', 'link', 'asin', 'manualPrice', 'lowStockG', 'notes', 'nozzleC', 'bedC', 'spoolmanId', 'predecessorId', 'successorId'] as const;
 const CARRY_LINE = ['materialProfileId', 'densityGcm3', 'manualPrice', 'notes', 'predecessorId', 'successorId'] as const;
 
 const empty = (v: unknown) => v === undefined || v === null || v === '';

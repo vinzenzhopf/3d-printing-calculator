@@ -21,7 +21,8 @@ Notes:
 - **Light DOM:** components render into the page (`createRenderRoot() { return this; }`) instead of an
   isolated shadow DOM, so global Bootstrap styles apply.
 - **No runtime CDN:** all dependencies are bundled. The Content-Security-Policy in `index.html` allows only the app's own
-  origin and `api.github.com`. That protects sync tokens and keeps the app working offline.
+  origin, `api.github.com` and `donkie.github.io` (SpoolmanDB, read only and on demand). That protects sync tokens and
+  keeps the app working offline.
 
 Measured on the skeleton: the whole JS is ~10 KB gzipped, plus ~31 KB gzipped of Bootstrap CSS. CSS size can be
 reduced later by importing only the Bootstrap parts in use.
