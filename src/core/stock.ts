@@ -49,9 +49,36 @@ export function suggestKind(doc: AppDocument, filamentId: Id, purchaseId?: Id): 
   );
 }
 
-/** "SUNLU plastic + cardboard · 160 g", for pickers. */
+/** "SUNLU - Plastic + cardboard": the brand in front, unless the name already starts with it. */
+export function kindName(kind: SpoolKind): string {
+  const brand = kind.manufacturer?.trim();
+  return brand && !kind.name.toLowerCase().startsWith(brand.toLowerCase()) ? `${brand} - ${kind.name}` : kind.name;
+}
+
+/** "SUNLU - Plastic + cardboard · 160 g", for pickers. */
 export function kindLabel(kind: SpoolKind): string {
-  return `${kind.name} · ${kind.emptyG} g`;
+  return `${kindName(kind)} · ${kind.emptyG} g${kind.capacityG ? ` · for ${kind.capacityG >= 1000 ? `${kind.capacityG / 1000} kg` : `${kind.capacityG} g`}` : ''}`;
+}
+
+export interface KindGroup {
+  /** Brand name, "Generic" or "Other brands". */
+  name: string;
+  kinds: SpoolKind[];
+}
+
+/** Empty spool kinds for a filament: its brand's first, then generic ones, then all other brands. */
+export function kindGroups(doc: AppDocument, filamentId?: Id): KindGroup[] {
+  const lineId = doc.filaments.find((f) => f.id === filamentId)?.productLineId;
+  const brand = doc.productLines.find((l) => l.id === lineId)?.manufacturer.trim().toLowerCase();
+  const byName = (a: SpoolKind, b: SpoolKind) => kindName(a).localeCompare(kindName(b));
+  const own = doc.spoolKinds.filter((k) => brand && k.manufacturer?.trim().toLowerCase() === brand).sort(byName);
+  const generic = doc.spoolKinds.filter((k) => !k.manufacturer?.trim()).sort(byName);
+  const other = doc.spoolKinds.filter((k) => !own.includes(k) && !generic.includes(k)).sort(byName);
+  return [
+    ...(own.length ? [{ name: own[0]!.manufacturer!.trim(), kinds: own }] : []),
+    ...(generic.length ? [{ name: 'Generic', kinds: generic }] : []),
+    ...(other.length ? [{ name: own.length || generic.length ? 'Other brands' : 'All', kinds: other }] : []),
+  ];
 }
 
 export interface WeighIn {
@@ -81,6 +108,46 @@ export function spoolKgOf(purchase: FilamentPurchase): number {
 /** Suggested split of a purchase into spools of its spool size (a partial spool counts as none). */
 export function suggestedSpoolCount(purchase: FilamentPurchase): number {
   return Math.max(1, Math.floor(purchase.totalKg / spoolKgOf(purchase) + 1e-9));
+}
+
+/**
+ * Sets a purchase to `count` spools of `kgPerSpool` (the total follows). A pack
+ * size that was just the purchase itself grows with it; a bundle's stays.
+ */
+export function setPurchaseSpools(p: FilamentPurchase, count: number, kgPerSpool: number): void {
+  const oldTotal = p.totalKg;
+  const pack = p.packSizeKg ?? p.packageWeightKg;
+  p.spoolKg = kgPerSpool;
+  p.totalKg = Math.round(count * kgPerSpool * 1000) / 1000;
+  p.packageWeightKg = p.totalKg / (p.quantity || 1);
+  p.packSizeKg = Math.abs(pack - oldTotal) < 1e-9 ? p.totalKg : pack;
+}
+
+export interface PurchaseChoice {
+  purchase: FilamentPurchase;
+  /** false: a purchase of another color of the same product line (e.g. a duplicate color entry). */
+  sameFilament: boolean;
+  /** Spools already linked to it (not counting `exceptSpoolId`), and how many it should have. */
+  spools: number;
+  expected: number;
+}
+
+/**
+ * Purchases a spool of this filament may come from: its own first, then those of
+ * other colors of the same line; newest first within each.
+ */
+export function purchaseChoices(doc: AppDocument, filamentId: Id, exceptSpoolId?: Id): PurchaseChoice[] {
+  const lineId = doc.filaments.find((f) => f.id === filamentId)?.productLineId;
+  const sameLine = new Set(doc.filaments.filter((f) => f.productLineId === lineId).map((f) => f.id));
+  return doc.purchases
+    .filter((p) => p.filamentId === filamentId || sameLine.has(p.filamentId))
+    .map((purchase) => ({
+      purchase,
+      sameFilament: purchase.filamentId === filamentId,
+      spools: doc.spools.filter((s) => s.purchaseId === purchase.id && s.id !== exceptSpoolId).length,
+      expected: suggestedSpoolCount(purchase),
+    }))
+    .sort((a, b) => Number(b.sameFilament) - Number(a.sameFilament) || b.purchase.date.localeCompare(a.purchase.date));
 }
 
 /** Sealed spools for a purchase, booked at their full nominal weight. */
@@ -169,7 +236,11 @@ export function toBuyList(doc: AppDocument): ToBuy[] {
 /** A spool by its label (printed label code like "L0042", or an older "S12") or its id. */
 export function findSpool(doc: AppDocument, key: string): Spool | undefined {
   const k = key.trim().toLowerCase();
-  return doc.spools.find((s) => s.label.toLowerCase() === k) ?? doc.spools.find((s) => s.id === key);
+  return (
+    doc.spools.find((s) => s.label.toLowerCase() === k) ??
+    doc.spools.find((s) => s.id === key) ??
+    doc.spools.find((s) => s.previousLabels?.some((l) => l.toLowerCase() === k))
+  );
 }
 
 /** Printed label codes ("L0042") as produced by core/labels. */
@@ -193,16 +264,32 @@ export function clearStock(doc: AppDocument): void {
 }
 
 /**
- * Sticks a printed label on a spool: the label code becomes the spool's label.
- * A code can only belong to one spool.
+ * Sticks a printed label on a spool: the label code becomes the spool's label,
+ * the old one is remembered. A code can only belong to one spool.
  */
 export function assignLabel(doc: AppDocument, spoolId: Id, code: string): void {
   const normalized = code.trim().toUpperCase();
-  const other = doc.spools.find((s) => s.label.toUpperCase() === normalized && s.id !== spoolId);
-  if (other) throw new Error(`Label ${normalized} is already on another spool.`);
+  const taken = (s: Spool) => s.label.toUpperCase() === normalized || s.previousLabels?.some((l) => l.toUpperCase() === normalized);
+  const other = doc.spools.find((s) => s.id !== spoolId && taken(s));
+  if (other) throw new Error(`Label ${normalized} is already on spool ${other.label}.`);
   const spool = doc.spools.find((s) => s.id === spoolId);
   if (!spool) throw new Error('Unknown spool.');
+  if (spool.label.toUpperCase() === normalized) return;
+  if (spool.label) spool.previousLabels = [...(spool.previousLabels ?? []), spool.label];
+  spool.previousLabels = spool.previousLabels?.filter((l) => l.toUpperCase() !== normalized);
+  if (spool.previousLabels?.length === 0) delete spool.previousLabels;
   spool.label = normalized;
+}
+
+/**
+ * Opening a sealed spool: the label on its wrapping goes away with it, so a new
+ * one goes on the spool and takes over everything.
+ */
+export function openWithNewLabel(doc: AppDocument, spoolId: Id, code: string, date: IsoDate): void {
+  assignLabel(doc, spoolId, code);
+  const spool = doc.spools.find((s) => s.id === spoolId)!;
+  if (spool.status === 'sealed') spool.status = 'open';
+  spool.openedAt ??= date;
 }
 
 export interface LabelSpoolInput {
@@ -224,7 +311,7 @@ export interface LabelSpoolInput {
  */
 export function spoolFromLabel(doc: AppDocument, input: LabelSpoolInput, newId: () => Id): Spool {
   const code = input.code.trim().toUpperCase();
-  if (doc.spools.some((s) => s.label.toUpperCase() === code)) throw new Error(`Label ${code} is already on another spool.`);
+  if (findSpool(doc, code)) throw new Error(`Label ${code} is already on another spool.`);
   const spool: Spool = {
     id: newId(),
     filamentId: input.filamentId,

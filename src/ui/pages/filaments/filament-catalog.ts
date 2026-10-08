@@ -13,6 +13,7 @@ import { cellNumber, cellSelect, cellText, numberField, selectField, textAreaFie
 import { newId, num, today } from '../../format';
 import { BASE_MATERIALS } from '../printers-page';
 import { filamentLabel, lineLabel, priceCell } from './labels';
+import { applyColor, colorButton } from '../../color-dialog';
 import { ask, tell } from '../../dialogs';
 
 const STATUS: Option[] = [
@@ -32,11 +33,6 @@ interface MergeDraft {
   mergeIdentical: boolean;
 }
 
-const ACQUISITION: Option[] = [
-  { value: 'purchase', label: 'Purchase' },
-  { value: 'gift', label: 'Gift' },
-  { value: 'sample', label: 'Sample' },
-];
 
 @customElement('filament-catalog')
 export class FilamentCatalog extends LitElement {
@@ -161,7 +157,7 @@ export class FilamentCatalog extends LitElement {
       <div class="table-responsive">
         <table class="table table-sm align-middle">
           <thead>
-            <tr><th></th><th>Color</th><th>Finish</th><th>Status</th><th>Acquired as</th><th class="text-end">Bought</th><th class="text-end">Stock</th><th title="Warn below this stock">Low at (g)</th><th>Price / kg (1 kg)</th><th>Link</th><th></th></tr>
+            <tr><th></th><th>Color</th><th>Finish</th><th>Status</th><th>Notes</th><th class="text-end">Bought</th><th class="text-end">Stock</th><th title="Warn below this stock">Low at (g)</th><th>Price / kg (1 kg)</th><th>Link</th><th></th></tr>
           </thead>
           <tbody>
             ${filaments.map((f) => {
@@ -169,12 +165,12 @@ export class FilamentCatalog extends LitElement {
               const kg = bought.reduce((sum, p) => sum + p.totalKg, 0);
               const successor = f.successorId ? doc.filaments.find((x) => x.id === f.successorId) : undefined;
               const row = html`<tr class=${f.deprecatedAt ? 'opacity-50' : ''}>
-                <td>${cellText(f.colorHex ?? '#ffffff', (v) => set(f.id, (x) => (x.colorHex = v)), { type: 'color', title: 'Swatch' })}</td>
+                <td>${colorButton(f, (c) => set(f.id, (x) => applyColor(x, c)), { title: 'Color, second color and finish' })}</td>
                 <td style="min-width: 9rem">${cellText(f.color, (v) => set(f.id, (x) => (x.color = v)), { title: 'Color' })}
                   ${f.deprecatedAt ? html`<div class="small text-body-secondary">deprecated ${f.deprecatedAt}${successor ? ` → ${successor.color}` : ''}</div>` : nothing}</td>
                 <td style="min-width: 6rem">${cellText(f.finish, (v) => set(f.id, (x) => (x.finish = v || null)), { title: 'Finish', placeholder: 'matte, silk…' })}</td>
                 <td>${cellSelect(f.status, STATUS, (v) => set(f.id, (x) => (x.status = v as Filament['status'])), true, 'Status')}</td>
-                <td>${cellSelect(f.acquisition, ACQUISITION, (v) => set(f.id, (x) => (x.acquisition = v as Filament['acquisition'])), true, 'Acquired as')}</td>
+                <td style="min-width: 8rem">${cellText(f.notes, (v) => set(f.id, (x) => (v ? (x.notes = v) : delete x.notes)), { title: 'Notes', placeholder: 'e.g. 235 °C works best' })}</td>
                 <td class="text-end text-nowrap">${kg ? `${num(kg, kg % 1 ? 2 : 0)} kg` : '–'}</td>
                 <td class="text-end text-nowrap">${stockCell(stock.get(f.id), f.lowStockG)}</td>
                 <td style="min-width: 5.5rem">${cellNumber(f.lowStockG ?? null, (v) => set(f.id, (x) => (v === null || v === 0 ? delete x.lowStockG : (x.lowStockG = v))), { min: 0, step: 100, allowEmpty: true, title: 'Low-stock threshold in grams' })}</td>
@@ -395,7 +391,7 @@ export class FilamentCatalog extends LitElement {
 
   #addFilament(lineId: string) {
     this.#update((d) =>
-      d.filaments.push({ id: newId(), productLineId: lineId, color: 'New color', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' }),
+      d.filaments.push({ id: newId(), productLineId: lineId, color: 'New color', finish: null, link: null, asin: null, status: 'owned' }),
     );
   }
 

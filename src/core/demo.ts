@@ -96,11 +96,11 @@ export function createDemoDocument(today: IsoDate, now = new Date()): AppDocumen
   ];
   const weighted: string[] = [];
   for (const [lineId, color, hex, weight] of colors) {
-    const f: Filament = { id: id('f'), productLineId: lineId, color, colorHex: hex, finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' };
+    const f: Filament = { id: id('f'), productLineId: lineId, color, colorHex: hex, finish: null, link: null, asin: null, status: 'owned' };
     doc.filaments.push(f);
     for (let i = 0; i < weight; i++) weighted.push(f.id);
   }
-  doc.filaments.push({ id: 'demo-f-wish', productLineId: 'demo-l-prusa-pla', color: 'Pearl Mouse', colorHex: '#A59E95', finish: 'blend', link: null, asin: null, acquisition: 'purchase', status: 'wishlist' });
+  doc.filaments.push({ id: 'demo-f-wish', productLineId: 'demo-l-prusa-pla', color: 'Pearl Mouse', colorHex: '#A59E95', finish: 'blend', link: null, asin: null, status: 'wishlist' });
   const lineOf = (filamentId: string) => lines.find((l) => l.id === doc.filaments.find((f) => f.id === filamentId)!.productLineId)!;
 
   // --- Purchases and spools -----------------------------------------------------------

@@ -10,7 +10,7 @@ function doc(): AppDocument {
   d.settings.energyPricePerKwh = 0;
   d.printers.push({ id: 'pr', name: 'P', technology: 'FDM', status: 'active', paidOff: true, toolheads: 1, toolType: 'single', purgeWastePerPlateG: 0, purgePerFilamentChangeG: null, firstHourPhaseMin: 60, powerProfiles: {} });
   d.productLines.push({ id: 'l', manufacturer: 'x', name: 'x', baseMaterial: 'PLA', materialProfileId: null, diameterMm: 1.75 });
-  d.filaments.push({ id: 'f', productLineId: 'l', color: 'c', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', manualPrice: { pricePerKg: 20, asOf } });
+  d.filaments.push({ id: 'f', productLineId: 'l', color: 'c', finish: null, link: null, asin: null, status: 'owned', manualPrice: { pricePerKg: 20, asOf } });
   // 1 €/h reserve, 1,000 € target, 100 € set aside by hand.
   d.plannedInvestments.push({ id: 'res', name: 'Next', printerId: null, targetAmount: 1000, mode: 'fixed-rate', fixedRatePerHour: 1, alreadyReserved: 100 });
   return d;

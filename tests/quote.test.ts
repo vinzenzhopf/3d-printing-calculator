@@ -41,7 +41,7 @@ describe('calculateQuote reproduces the Excel quotes', () => {
       doc.materialProfiles.push({ id: `m${n}`, name: 'm', baseMaterial: 'PLA' });
       doc.printers[0]!.powerProfiles[`m${n}`] = item.power as PowerProfile;
       doc.productLines.push({ id: 'line', manufacturer: 'x', name: 'x', baseMaterial: 'PLA', materialProfileId: `m${n}`, diameterMm: 1.75 });
-      doc.filaments.push({ id: 'f', productLineId: 'line', color: 'c', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', manualPrice: { pricePerKg: item.pricePerKg, asOf } });
+      doc.filaments.push({ id: 'f', productLineId: 'line', color: 'c', finish: null, link: null, asin: null, status: 'owned', manualPrice: { pricePerKg: item.pricePerKg, asOf } });
       const quote: Quote = {
         id: 'q', number: 1, title: 't', status: 'draft',
         pricingProfileId: `legacy-${item.labor.mode === 'default'}-${item.markup.mode === 'default'}`,
@@ -64,7 +64,7 @@ describe('pricing steps', () => {
     d.printers.push({ id: 'pr', name: 'P', technology: 'FDM', status: 'active', paidOff: true, toolheads: 4, toolType: 'toolchanger', purgeWastePerPlateG: 0, purgePerFilamentChangeG: 1, firstHourPhaseMin: 60, powerProfiles: {} });
     d.productLines.push({ id: 'l', manufacturer: 'x', name: 'x', baseMaterial: 'PLA', materialProfileId: null, diameterMm: 1.75 });
     for (const id of ['a', 'b']) {
-      d.filaments.push({ id, productLineId: 'l', color: id, finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', manualPrice: { pricePerKg: 20, asOf } });
+      d.filaments.push({ id, productLineId: 'l', color: id, finish: null, link: null, asin: null, status: 'owned', manualPrice: { pricePerKg: 20, asOf } });
     }
     d.pricingProfiles = [baseProfile(profile)];
     return d;

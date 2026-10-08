@@ -11,9 +11,9 @@ function doc(): AppDocument {
     { id: 'petg', manufacturer: 'eSUN', name: 'PETG', baseMaterial: 'PETG', materialProfileId: null, diameterMm: 1.75 },
   );
   d.filaments.push(
-    { id: 'white', productLineId: 'pla', color: 'White', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' },
-    { id: 'black', productLineId: 'pla', color: 'Black', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' },
-    { id: 'grey', productLineId: 'petg', color: 'Grey', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' },
+    { id: 'white', productLineId: 'pla', color: 'White', finish: null, link: null, asin: null, status: 'owned' },
+    { id: 'black', productLineId: 'pla', color: 'Black', finish: null, link: null, asin: null, status: 'owned' },
+    { id: 'grey', productLineId: 'petg', color: 'Grey', finish: null, link: null, asin: null, status: 'owned' },
   );
   const purchase = (id: string, date: string, filamentId: string, kg: number, price: number) =>
     d.purchases.push({ id, date, store: 'x', description: '', filamentId, packageWeightKg: kg, quantity: 1, totalKg: kg, totalPrice: price });

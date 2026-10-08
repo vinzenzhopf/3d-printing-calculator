@@ -102,10 +102,10 @@ Quote → PrintJob (actual runs, actual time/weight, failures) → stock deducti
 - **FI-4 (M)** A purchase (order) has date, store, order no., shipping cost, and **line items**. A bundle
   ("4 kg, Green/Yellow/Grey/Black") is entered as one order with several lines. Price is split evenly or manually,
   and shipping is allocated proportionally.
-- **FI-4a (M)** Acquisition type per purchase/spool: *purchase*, *gift*, *sample*. Gifts and samples cost
-  0 € in stock value and are **excluded from price averages**. When they're used in a quote, the price comes
-  from the price list or the fallback chain (FI-10), because what matters is the replacement cost, not what you paid.
-  Seed: HATCHBOX PLA Red/Green are gifts.
+- **FI-4a (M)** Acquisition type per purchase: *bought*, *gift*, *sample*. A gift or sample records what was
+  paid (often 0, or shipping) and optionally its **value**. Only the paid amount counts as spent; the value counts
+  for the filament price (FI-10). Without a value it is **excluded from price averages** and the price comes from
+  the price list or the fallback chain, because what matters is the replacement cost, not what you paid.
 - **FI-5 (M)** Each purchase line creates **spools** (net weight, spool type: plastic / cardboard / refill, tare
   weight). Spool status: sealed → open → empty → discarded. Optional location and opened/dried date.
 - **FI-6 (M)** **Stock ledger per spool**: every change is a movement (purchase +, print −, weigh-in correction ±,

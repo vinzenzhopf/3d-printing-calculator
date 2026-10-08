@@ -13,7 +13,7 @@ import { toBuyList } from '../src/core/stock';
 const date = '2026-10-07';
 
 function filament(id: string, productLineId: string, color: string, extra: Partial<Filament> = {}): Filament {
-  return { id, productLineId, color, finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', ...extra };
+  return { id, productLineId, color, finish: null, link: null, asin: null, status: 'owned', ...extra };
 }
 
 function doc(): AppDocument {

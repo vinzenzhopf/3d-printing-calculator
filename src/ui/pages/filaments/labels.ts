@@ -1,7 +1,8 @@
 import { html, nothing } from 'lit';
 import type { PriceSource, ResolvedPrice } from '../../../core/calc/price-resolution';
 import type { AppDocument, Filament, ProductLine, Spool } from '../../../core/model';
-import { kindLabel, type ResolvedTare } from '../../../core/stock';
+import { swatchBackground, type ColorLook } from '../../../core/colors';
+import { kindGroups, kindLabel, kindName, type ResolvedTare } from '../../../core/stock';
 import type { Option } from '../../fields';
 import { money } from '../../format';
 
@@ -31,10 +32,13 @@ export function priceCell(price: ResolvedPrice | null, currency: string) {
     ${price.stale ? html`<span class="badge text-bg-warning fw-normal" title="No purchase or manual price within the price window">stale</span>` : nothing}`;
 }
 
-export function swatch(hex: string | undefined) {
+/** Round color swatch; shows a second color, silk, transparent and glitter (see swatchBackground). */
+export function swatch(look: ColorLook | string | undefined, size = '1rem', title?: string) {
+  const l = typeof look === 'string' || look === undefined ? { colorHex: look } : look;
   return html`<span
-    class="d-inline-block rounded-circle border align-middle"
-    style="width:1rem;height:1rem;background:${hex || 'transparent'}"
+    class="d-inline-block rounded-circle border align-middle flex-shrink-0"
+    title=${title ?? nothing}
+    style="width:${size};height:${size};background:${swatchBackground(l)}"
   ></span>`;
 }
 
@@ -83,15 +87,18 @@ export const SPOOL_STATUS: Option[] = [
   { value: 'discarded', label: 'Discarded' },
 ];
 
-/** Empty spool kinds for a select; '' = unknown (or "suggested", for purchases). */
-export function kindOptions(doc: AppDocument, none = 'Unknown'): Option[] {
-  return [{ value: '', label: none }, ...doc.spoolKinds.map((k) => ({ value: k.id, label: kindLabel(k) }))];
+/** Empty spool kinds for a select, the filament's brand first; '' = unknown (or "suggested", for purchases). */
+export function kindOptions(doc: AppDocument, none = 'Unknown', filamentId?: string): Option[] {
+  return [
+    { value: '', label: none },
+    ...kindGroups(doc, filamentId).flatMap((g) => g.kinds.map((k) => ({ value: k.id, label: kindLabel(k), group: g.name }))),
+  ];
 }
 
 /** "SUNLU plastic, SpoolmanDB" / "measured on this spool" / "unknown". */
 export function tareText(tare: ResolvedTare): string {
   if (tare.source === 'spool') return 'measured on this spool';
-  if (tare.kind) return `${tare.kind.name}, ${tare.kind.source}`;
+  if (tare.kind) return `${kindName(tare.kind)}, ${tare.kind.source}`;
   return 'unknown: choose the empty spool under Details';
 }
 

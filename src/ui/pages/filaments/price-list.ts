@@ -121,7 +121,7 @@ export class PriceList extends LitElement {
             else delete x.manualPrice;
           });
         return html`<tr class="table-light">
-          <td class="ps-4 small">${f.color}${f.finish ? ` (${f.finish})` : ''}${f.acquisition !== 'purchase' ? html` <span class="badge text-bg-light border">${f.acquisition}</span>` : nothing}</td>
+          <td class="ps-4 small">${f.color}${f.finish ? ` (${f.finish})` : ''}${giftBadge(doc, f.id)}</td>
           <td class="text-nowrap small" colspan="2">${priceCell(own, cur)}</td>
           ${this.#manualCells(f.manualPrice, own.pricePerKg, setManual, asOf)}
         </tr>`;
@@ -161,4 +161,11 @@ function suggested(c: ReturnType<typeof linePrices>): ResolvedPrice | null {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** "gift"/"sample" when every purchase of the color was one. */
+function giftBadge(doc: AppDocument, filamentId: string) {
+  const kinds = new Set(doc.purchases.filter((p) => p.filamentId === filamentId).map((p) => p.acquisition ?? 'purchase'));
+  const [only] = kinds;
+  return kinds.size === 1 && only !== 'purchase' ? html` <span class="badge text-bg-light border">${only}</span>` : nothing;
 }

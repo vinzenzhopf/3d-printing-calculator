@@ -22,6 +22,8 @@ const MIGRATIONS: Record<number, (doc: Raw) => Raw> = {
   2: (doc) => ({ ...doc, printJobs: doc.printJobs ?? [] }),
   // 4: empty-spool kinds chosen per spool, instead of presets by brand/line/type.
   3: migrateTarePresets,
+  // 5: "gift"/"sample" moves from the filament to its purchases.
+  4: migrateAcquisition,
 };
 
 interface LegacyTarePreset {
@@ -77,6 +79,25 @@ function migrateTarePresets(doc: Raw): Raw {
     spoolType === 'refill' && refill ? { ...purchase, kindId: refill.id } : purchase,
   );
   return { ...rest, spoolKinds: kinds, spools, purchases };
+}
+
+/**
+ * A gifted filament's purchases become gifts: what was entered as the price is
+ * kept as their value (for the filament price), nothing counts as paid.
+ */
+function migrateAcquisition(doc: Raw): Raw {
+  const kindOf = new Map<unknown, string>();
+  const filaments = ((Array.isArray(doc.filaments) ? doc.filaments : []) as Raw[]).map(({ acquisition, ...f }) => {
+    if (acquisition === 'gift' || acquisition === 'sample') kindOf.set(f.id, acquisition);
+    return f;
+  });
+  const purchases = ((Array.isArray(doc.purchases) ? doc.purchases : []) as Raw[]).map((p) => {
+    const kind = kindOf.get(p.filamentId);
+    if (!kind) return p;
+    const price = typeof p.totalPrice === 'number' ? p.totalPrice : 0;
+    return { ...p, acquisition: kind, ...(price > 0 ? { value: price } : {}), totalPrice: 0 };
+  });
+  return { ...doc, filaments, purchases };
 }
 
 const COLLECTIONS = [

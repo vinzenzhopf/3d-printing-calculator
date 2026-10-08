@@ -29,6 +29,17 @@ describe('loadDocument', () => {
     expect(warnings).toEqual([]);
   });
 
+  it('moves "gift" from the filament to its purchases, keeping the price as value', () => {
+    const { doc } = loadDocument({
+      schemaVersion: 4,
+      filaments: [{ id: 'red', acquisition: 'gift' }, { id: 'black', acquisition: 'purchase' }],
+      purchases: [{ id: 'p1', filamentId: 'red', totalPrice: 25 }, { id: 'p2', filamentId: 'black', totalPrice: 20 }],
+    });
+    expect(doc.filaments.every((f) => !('acquisition' in f))).toBe(true);
+    expect(doc.purchases[0]).toMatchObject({ acquisition: 'gift', value: 25, totalPrice: 0 });
+    expect(doc.purchases[1]).toEqual({ id: 'p2', filamentId: 'black', totalPrice: 20 });
+  });
+
   it('warns about references to missing entities', () => {
     const { warnings } = loadDocument({
       schemaVersion: 1,

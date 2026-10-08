@@ -105,6 +105,19 @@ export function switchField(
 export interface Option {
   value: string;
   label: string;
+  /** Consecutive options with the same group are shown under it. */
+  group?: string;
+}
+
+function optionList(options: Option[], value: string) {
+  const one = (o: Option) => html`<option value=${o.value} ?selected=${o.value === value}>${o.label}</option>`;
+  const runs: { group?: string; options: Option[] }[] = [];
+  for (const o of options) {
+    const last = runs.at(-1);
+    if (last && last.group === o.group) last.options.push(o);
+    else runs.push({ group: o.group, options: [o] });
+  }
+  return runs.map((r) => (r.group ? html`<optgroup label=${r.group}>${r.options.map(one)}</optgroup>` : r.options.map(one)));
 }
 
 export function selectField(
@@ -172,6 +185,6 @@ export function cellSelect(
     aria-label=${title ?? nothing}
     @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
   >
-    ${options.map((o) => html`<option value=${o.value} ?selected=${o.value === value}>${o.label}</option>`)}
+    ${optionList(options, value)}
   </select>`;
 }

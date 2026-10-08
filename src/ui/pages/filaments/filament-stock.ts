@@ -8,7 +8,7 @@ import { pickFilament } from '../../filament-picker';
 import { scanAndOpen } from '../../qr-scanner';
 import { cellNumber, cellSelect } from '../../fields';
 import { newId, num, today } from '../../format';
-import { filamentLabel, kindOptions, spoolHref } from './labels';
+import { filamentLabel, kindOptions, spoolHref, swatch } from './labels';
 
 type Filter = 'in-use' | 'open' | 'sealed' | 'empty' | 'all';
 type Sort = 'left' | 'filament' | 'label';
@@ -126,8 +126,7 @@ export class FilamentStock extends LitElement {
   }
 
   #swatch(s: Spool, size = '1.75rem') {
-    const hex = this.#doc.filaments.find((x) => x.id === s.filamentId)?.colorHex;
-    return html`<span class="rounded-circle border flex-shrink-0 d-inline-block" style="width:${size};height:${size};background:${hex || 'transparent'}"></span>`;
+    return swatch(this.#doc.filaments.find((x) => x.id === s.filamentId), size);
   }
 
   #card(s: Spool) {
@@ -179,7 +178,7 @@ export class FilamentStock extends LitElement {
   #addFromShelf() {
     return html`<div class="row g-2 align-items-end">
       <div class="col-md-6"><div class="small">Filament</div>${pickFilament(this.shelf.filamentId, (v) => (this.shelf = { ...this.shelf, filamentId: v, kindId: suggestKind(this.#doc, v) ?? '' }))}</div>
-      <div class="col-6 col-md-2"><label class="small d-block">Empty spool${cellSelect(this.shelf.kindId, kindOptions(this.#doc), (v) => (this.shelf = { ...this.shelf, kindId: v }), true, 'Empty spool')}</label></div>
+      <div class="col-6 col-md-2"><label class="small d-block">Empty spool${cellSelect(this.shelf.kindId, kindOptions(this.#doc, 'Unknown', this.shelf.filamentId), (v) => (this.shelf = { ...this.shelf, kindId: v }), true, 'Empty spool')}</label></div>
       <div class="col-6 col-md-2"><label class="small d-block">Size (g)${cellNumber(this.shelf.nominalG, (v) => (this.shelf = { ...this.shelf, nominalG: v ?? 1000 }), { min: 0, step: 50, title: 'Nominal grams' })}</label></div>
       <div class="col-md-2"><button class="btn btn-sm btn-primary w-100" ?disabled=${!this.shelf.filamentId} @click=${async () => {
         const id = newId();

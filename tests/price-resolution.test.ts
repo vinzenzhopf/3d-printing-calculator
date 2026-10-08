@@ -6,7 +6,7 @@ import type { AppDocument, Filament, FilamentPurchase } from '../src/core/model'
 const asOf = '2026-10-01';
 
 function filament(id: string, extra: Partial<Filament> = {}): Filament {
-  return { id, productLineId: 'pla-plus', color: id, finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', ...extra };
+  return { id, productLineId: 'pla-plus', color: id, finish: null, link: null, asin: null, status: 'owned', ...extra };
 }
 
 let n = 0;
@@ -18,7 +18,7 @@ function doc(): AppDocument {
   return {
     ...createEmptyDocument(),
     productLines: [{ id: 'pla-plus', manufacturer: 'SUNLU', name: 'PLA+', baseMaterial: 'PLA', materialProfileId: null, diameterMm: 1.75 }],
-    filaments: [filament('black'), filament('silver'), filament('gift-red', { acquisition: 'gift' })],
+    filaments: [filament('black'), filament('silver'), filament('gift-red')],
     purchases: [
       purchase('black', '2023-09-22', 2, 43.99),
       purchase('black', '2026-01-30', 4, 44.99),
@@ -52,6 +52,14 @@ describe('resolveFilamentPrice', () => {
     expect(r.pricePerKg).toBeCloseTo(15.18, 6); // the only single-spool purchase in the window
   });
 
+  it('prices gifts by their value and ignores gifts without one', () => {
+    const d = doc();
+    d.purchases.push({ ...purchase('gift-red', '2026-09-01', 1, 0), acquisition: 'gift', value: 22 });
+    expect(resolveFilamentPrice(d, 'gift-red', { asOf, needKg: 1 })).toMatchObject({ source: 'purchases', pricePerKg: 22 });
+    d.purchases.at(-1)!.value = undefined;
+    expect(resolveFilamentPrice(d, 'gift-red', { asOf, needKg: 1 }).source).toBe('line-purchases');
+  });
+
   it('manual color price wins over line price and purchases', () => {
     const d = doc();
     d.productLines[0]!.manualPrice = { pricePerKg: 12, asOf: '2026-09-01' };
@@ -79,6 +87,8 @@ describe('pack classes', () => {
   it('classifies by pack size, also for bundles split into colors', () => {
     expect(packClass(purchase('x', asOf, 1, 15))).toBe('single');
     expect(packClass(purchase('x', asOf, 1, 12.75, 4))).toBe('multi');
+    expect(packClass({ ...purchase('x', asOf, 2.5, 40), spoolKg: 2.5 })).toBe('single'); // one big spool
+    expect(packClass({ ...purchase('x', asOf, 5, 70), spoolKg: 2.5 })).toBe('multi');
   });
 
   it('computes line prices per pack class', () => {

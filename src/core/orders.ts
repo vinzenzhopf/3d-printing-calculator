@@ -3,7 +3,7 @@ import type { FilamentPurchase, Id, IsoDate } from './model';
 export interface OrderLine {
   filamentId: Id;
   kg: number;
-  /** Optional explicit price for this line; lines without one share the rest by weight. */
+  /** Optional explicit price for this line; lines without one share the rest by weight. For gifts: its value. */
   price?: number;
 }
 
@@ -17,6 +17,8 @@ export interface Order {
   lines: OrderLine[];
   kindId?: Id;
   spoolKg?: number;
+  /** Gifts/samples: the price fields are what was paid (may be 0), line prices are values. */
+  acquisition?: 'gift' | 'sample';
 }
 
 /**
@@ -26,6 +28,12 @@ export interface Order {
  * whole pack size, so the bundle still counts as a multi-pack.
  */
 export function splitOrder(order: Order, newId: () => Id): FilamentPurchase[] {
+  if (order.acquisition) {
+    // Paid (often just shipping) is split by weight; each line's own price is its value.
+    const values = order.lines.filter((l) => l.kg > 0).map((l) => l.price);
+    const paid = splitOrder({ ...order, acquisition: undefined, lines: order.lines.map(({ price: _, ...l }) => l) }, newId);
+    return paid.map((p, i) => ({ ...p, acquisition: order.acquisition, ...(values[i] !== undefined ? { value: values[i] } : {}) }));
+  }
   const lines = order.lines.filter((l) => l.kg > 0);
   const packSizeKg = lines.reduce((sum, l) => sum + l.kg, 0);
   const fixed = lines.reduce((sum, l) => sum + (l.price ?? 0), 0);

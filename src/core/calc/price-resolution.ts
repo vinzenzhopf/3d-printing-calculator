@@ -1,12 +1,24 @@
 import type { AppDocument, FilamentPurchase, Id, IsoDate, ManualPrice } from '../model';
 import { predecessorChain } from '../catalog-cleanup';
-import { addMonths, recentLotsPrice, type LotPrice } from './filament-price';
+import { spoolKgOf } from '../stock';
+import { addMonths, recentLotsPrice, type LotPrice, type PriceLot } from './filament-price';
 
 export type PackClass = 'single' | 'multi';
 
-/** Multi-packs (2 kg and more) are much cheaper per kg; prices are only pooled within a class. */
+/**
+ * Multi-packs (2 kg and more, on several spools) are much cheaper per kg; prices
+ * are only pooled within a class. One big spool (e.g. 2.5 kg) is a single.
+ */
 export function packClass(p: FilamentPurchase): PackClass {
-  return (p.packSizeKg ?? p.packageWeightKg) >= 2 ? 'multi' : 'single';
+  const packKg = p.packSizeKg ?? p.packageWeightKg;
+  return packKg >= 2 && packKg / spoolKgOf(p) >= 2 - 1e-9 ? 'multi' : 'single';
+}
+
+/** What a purchase counts with for the price: gifts and samples by their value, and not at all without one. */
+function priceLots(purchases: FilamentPurchase[]): PriceLot[] {
+  return purchases
+    .filter((p) => !p.acquisition || p.value !== undefined)
+    .map((p) => ({ date: p.date, totalKg: p.totalKg, totalPrice: p.acquisition ? p.value! : p.totalPrice }));
 }
 
 export type PriceSource = 'manual-filament' | 'manual-line' | 'purchases' | 'predecessor-purchases' | 'line-purchases' | 'none';
@@ -95,7 +107,7 @@ function fromLots(
   source: PriceSource,
   cls?: PackClass,
 ): ResolvedPrice | null {
-  const lots = recentLotsPrice(purchases, { ...opts, windowMonths });
+  const lots = recentLotsPrice(priceLots(purchases), { ...opts, windowMonths });
   if (!lots) return null;
   return {
     pricePerKg: lots.pricePerKg,

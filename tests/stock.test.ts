@@ -5,7 +5,7 @@ import { loadDocument } from '../src/core/migrations';
 import type { AppDocument, FilamentPurchase, Spool } from '../src/core/model';
 import {
   assignLabel, clearStock, findSpool, isLabelCode, nextLabelNumber, spoolFromLabel, spoolKeyFromScan,
-  gramsToMeters, labelGenerator, metersToGrams, remainingG, resolveTare, spoolsForPurchase,
+  gramsToMeters, kindGroups, kindLabel, kindName, labelGenerator, openWithNewLabel, purchaseChoices, setPurchaseSpools, metersToGrams, remainingG, resolveTare, spoolsForPurchase,
   stockByFilament, suggestKind, suggestedSpoolCount, weighIn,
 } from '../src/core/stock';
 
@@ -19,7 +19,7 @@ function doc(): AppDocument {
     { id: 'prusa-petg', manufacturer: 'Prusa', name: 'PETG', baseMaterial: 'PETG', materialProfileId: null, diameterMm: 1.75 },
   );
   for (const [id, line] of [['pla', 'sunlu-pla'], ['petg', 'sunlu-petg'], ['prusa', 'prusa-petg']]) {
-    d.filaments.push({ id: id!, productLineId: line!, color: 'x', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned' });
+    d.filaments.push({ id: id!, productLineId: line!, color: 'x', finish: null, link: null, asin: null, status: 'owned' });
   }
   d.spoolKinds.push({ id: 'sunlu-cardboard', name: 'SUNLU plastic + cardboard', manufacturer: 'SUNLU', emptyG: 160, source: 'test' });
   return d;
@@ -191,8 +191,31 @@ describe('spool labels', () => {
 
     assignLabel(d, 'a', 'l0042');
     expect(findSpool(d, 'L0042')?.id).toBe('a');
-    expect(findSpool(d, 'S7')).toBeUndefined();
-    expect(() => assignLabel(d, 'b', 'L0042')).toThrow('already on another spool');
+    expect(findSpool(d, 'S7')?.id).toBe('a'); // the old label still finds it
+    expect(() => assignLabel(d, 'b', 'L0042')).toThrow('already on spool L0042');
+    expect(() => assignLabel(d, 'b', 'S7')).toThrow('already on spool L0042');
+  });
+
+  it('moves everything to a new label when a sealed spool is opened', () => {
+    const d = doc();
+    d.spools.push(spool({ id: 'a', label: 'L0001', status: 'sealed', movements: [{ id: 'm', date, kind: 'initial', grams: 1000 }] }));
+    openWithNewLabel(d, 'a', 'L0002', date);
+    expect(d.spools[0]).toMatchObject({ label: 'L0002', previousLabels: ['L0001'], status: 'open', openedAt: date });
+    expect(remainingG(d.spools[0]!)).toBe(1000);
+    expect(findSpool(d, 'L0001')?.id).toBe('a');
+  });
+});
+
+describe('empty spool kinds', () => {
+  it('names kinds with their brand and offers the filament brand first', () => {
+    const d = doc();
+    d.spoolKinds.push({ id: 'prusa', name: 'Cardboard', manufacturer: 'Prusa', emptyG: 193, source: 'x', capacityG: 1000 });
+    expect(kindName(d.spoolKinds.find((k) => k.id === 'prusa')!)).toBe('Prusa - Cardboard');
+    expect(kindName(d.spoolKinds.find((k) => k.id === 'sunlu-cardboard')!)).toBe('SUNLU plastic + cardboard');
+    expect(kindLabel(d.spoolKinds.find((k) => k.id === 'prusa')!)).toBe('Prusa - Cardboard · 193 g · for 1 kg');
+    const groups = kindGroups(d, 'prusa');
+    expect(groups.map((g) => g.name)).toEqual(['Prusa', 'Generic', 'Other brands']);
+    expect(groups[0]!.kinds.map((k) => k.id)).toEqual(['prusa']);
   });
 });
 
@@ -254,5 +277,29 @@ describe('stock maintenance', () => {
     clearStock(d);
     d.settings.labelNextNumber = 1;
     expect(nextLabelNumber(d)).toBe(1);
+  });
+});
+
+describe('purchases and spools', () => {
+  const purchase = (id: string, filamentId: string, date: string, kg = 1): FilamentPurchase =>
+    ({ id, date, store: '', description: '', filamentId, packageWeightKg: kg, quantity: 1, totalPrice: 20, totalKg: kg });
+
+  it('offers own purchases first, then other colors of the line, with linked spool counts', () => {
+    const d = doc();
+    d.filaments.push({ id: 'pla2', productLineId: 'sunlu-pla', color: 'y', finish: null, link: null, asin: null, status: 'owned' });
+    d.purchases.push(purchase('old', 'pla', '2025-01-01', 2), purchase('dup', 'pla2', '2026-01-01'), purchase('new', 'pla', '2026-02-01'), purchase('other', 'petg', '2026-03-01'));
+    d.spools.push(spool({ id: 's1', purchaseId: 'old' }), spool({ id: 's2', purchaseId: 'old' }));
+    const choices = purchaseChoices(d, 'pla', 's2');
+    expect(choices.map((c) => [c.purchase.id, c.sameFilament])).toEqual([['new', true], ['old', true], ['dup', false]]);
+    expect(choices[1]).toMatchObject({ spools: 1, expected: 2 });
+  });
+
+  it('edits a purchase as spools × kg per spool', () => {
+    const p = purchase('p', 'pla', date, 2);
+    setPurchaseSpools(p, 1, 2.5);
+    expect(p).toMatchObject({ totalKg: 2.5, spoolKg: 2.5, packSizeKg: 2.5, packageWeightKg: 2.5 });
+    const bundled = { ...purchase('b', 'pla', date, 1), packSizeKg: 4 };
+    setPurchaseSpools(bundled, 2, 1);
+    expect(bundled).toMatchObject({ totalKg: 2, packSizeKg: 4 });
   });
 });

@@ -4,6 +4,8 @@ import { isFilamentDeprecated } from '../core/catalog-cleanup';
 import type { BaseMaterial, Filament, ProductLine } from '../core/model';
 import { store } from '../state/store-instance';
 import { newId } from './format';
+import { colorButton } from './color-dialog';
+import { swatch } from './pages/filaments/labels';
 
 const NEW = '__new__';
 const BASE_MATERIALS: BaseMaterial[] = ['PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'Other'];
@@ -20,7 +22,7 @@ export class FilamentPicker extends LitElement {
   /** Line chosen without a color yet. */
   @state() private pendingLine = '';
   @state() private creating: 'line' | 'color' | null = null;
-  @state() private draft = { manufacturer: '', line: '', base: 'PLA' as BaseMaterial, color: '', hex: '#888888', finish: '' };
+  @state() private draft = { manufacturer: '', line: '', base: 'PLA' as BaseMaterial, color: '', hex: '#888888', hex2: '', finish: '' };
 
   protected override createRenderRoot() {
     return this;
@@ -63,7 +65,7 @@ export class FilamentPicker extends LitElement {
           ${colors.map((f) => html`<option value=${f.id} ?selected=${f.id === this.value}>${colorLabel(f)}</option>`)}
           ${lineId ? html`<option value=${NEW} ?selected=${this.creating === 'color'}>+ New color…</option>` : nothing}
         </select>
-        ${current?.colorHex ? html`<span class="align-self-center rounded-circle border flex-shrink-0" style="width:1rem;height:1rem;background:${current.colorHex}" title=${current.color}></span>` : nothing}
+        ${current?.colorHex ? html`<span class="align-self-center">${swatch(current, '1rem', current.color)}</span>` : nothing}
       </div>
       ${this.creating ? this.#form(lines) : nothing}
     `;
@@ -90,7 +92,7 @@ export class FilamentPicker extends LitElement {
         <div class="d-flex gap-1">
           <input class="form-control form-control-sm" placeholder="Color, e.g. Black" aria-label="Color name" .value=${d.color} @input=${input('color')}
             @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter' && valid) { e.preventDefault(); void this.#create(); } }} />
-          <input class="form-control form-control-sm form-control-color flex-shrink-0" type="color" aria-label="Swatch" .value=${d.hex} @input=${input('hex')} />
+          <span class="align-self-center">${colorButton({ colorHex: d.hex, colorHex2: d.hex2 || undefined, finish: d.finish }, (c) => set({ hex: c.colorHex, hex2: c.colorHex2 ?? '', finish: c.finish ?? '' }), { size: '1.6rem', title: 'Color and finish' })}</span>
           <input class="form-control form-control-sm" style="max-width: 7rem" placeholder="Finish (opt.)" aria-label="Finish" .value=${d.finish} @input=${input('finish')} />
           <button class="btn btn-sm btn-primary" ?disabled=${!valid} @click=${this.#create}>Add</button>
           <button class="btn btn-sm btn-link" @click=${() => (this.creating = null)}>Cancel</button>
@@ -139,13 +141,13 @@ export class FilamentPicker extends LitElement {
         }
       }
       doc.filaments.push({
-        id: filamentId, productLineId: lineId, color: d.color.trim(), colorHex: d.hex, finish: d.finish.trim() || null,
-        link: null, asin: null, acquisition: 'purchase', status: 'owned',
+        id: filamentId, productLineId: lineId, color: d.color.trim(), colorHex: d.hex, ...(d.hex2 ? { colorHex2: d.hex2 } : {}), finish: d.finish.trim() || null,
+        link: null, asin: null, status: 'owned',
       });
     });
     this.creating = null;
     this.pendingLine = lineId;
-    this.draft = { ...d, color: '', finish: '' };
+    this.draft = { ...d, color: '', hex2: '', finish: '' };
     this.#emit(filamentId);
   };
 

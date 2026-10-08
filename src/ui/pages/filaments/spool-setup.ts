@@ -189,15 +189,17 @@ export class SpoolSetup extends LitElement {
         <p class="small text-body-secondary">
           The kinds of empty spools you have, e.g. "SUNLU plastic + cardboard" or "TPU 500 g spool". Every spool points
           to one, and its weight turns scale readings into filament weight. New spools suggest the kind used last for the
-          same product line or brand. "This is the empty spool" on a spool page updates the weight here.
+          same product line or brand. "This is the empty spool" on a spool page updates the weight here. "Holds" (optional)
+          is the filament on a new spool of this kind, e.g. 2500 for a big spool: new spools on it start with that size.
         </p>
         <div class="table-responsive"><table class="table table-sm align-middle">
-          <thead><tr><th style="min-width: 16rem">Name</th><th style="min-width: 8rem">Brand</th><th style="width: 7rem">Empty (g)</th><th>Weight from</th><th class="text-end">Spools</th><th></th></tr></thead>
+          <thead><tr><th style="min-width: 16rem">Name</th><th style="min-width: 8rem">Brand</th><th style="width: 7rem">Empty (g)</th><th style="width: 7rem" title="Filament it holds when new: default size of its spools">Holds (g)</th><th>Weight from</th><th class="text-end">Spools</th><th></th></tr></thead>
           <tbody>
             ${doc.spoolKinds.map((k) => html`<tr>
               <td>${cellText(k.name, (v) => v && set(k.id, (x) => (x.name = v)), { title: 'Name' })}</td>
               <td>${cellText(k.manufacturer, (v) => set(k.id, (x) => (x.manufacturer = v || null)), { title: 'Brand', placeholder: 'any' })}</td>
               <td>${cellNumber(k.emptyG, (v) => set(k.id, (x) => { x.emptyG = v ?? 0; x.source = 'entered by hand'; }), { min: 0, title: 'Empty grams' })}</td>
+              <td>${cellNumber(k.capacityG ?? null, (v) => set(k.id, (x) => (v ? (x.capacityG = v) : delete x.capacityG)), { min: 0, step: 1, allowEmpty: true, placeholder: '–', title: 'Holds grams' })}</td>
               <td class="small text-body-secondary">${k.source}</td>
               <td class="text-end">${uses(k.id)}</td>
               <td><button class="btn btn-sm btn-link text-danger" title="Delete" @click=${() => this.#deleteKind(k, uses(k.id))}>✕</button></td>

@@ -43,4 +43,11 @@ describe('splitOrder', () => {
   it('drops empty lines', () => {
     expect(splitOrder({ ...bundle, lines: [{ filamentId: 'a', kg: 0 }, { filamentId: 'b', kg: 1 }] }, id)).toHaveLength(1);
   });
+
+  it('books gifts with what was paid and line prices as their value', () => {
+    const [a, b] = splitOrder({ ...bundle, acquisition: 'gift', totalPrice: 0, shipping: 4, lines: [{ filamentId: 'a', kg: 1, price: 25 }, { filamentId: 'b', kg: 1 }] }, id);
+    expect(a).toMatchObject({ acquisition: 'gift', value: 25, totalPrice: 2 });
+    expect(b).toMatchObject({ acquisition: 'gift', totalPrice: 2 });
+    expect(b!.value).toBeUndefined();
+  });
 });

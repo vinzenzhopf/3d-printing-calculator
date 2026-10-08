@@ -16,8 +16,14 @@ type DetectorCtor = {
   getSupportedFormats(): Promise<string[]>;
 };
 
+export interface ScanOptions {
+  /** 'any': also barcodes and Data Matrix codes, where the browser can read them (QR codes everywhere). */
+  formats?: 'qr' | 'any';
+  prompt?: string;
+}
+
 /** Resolves with the scanned text, or null when cancelled. */
-export function scanQr(): Promise<string | null> {
+export function scanQr(opts: ScanOptions = {}): Promise<string | null> {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center';
@@ -26,12 +32,13 @@ export function scanQr(): Promise<string | null> {
       <video playsinline muted style="width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0;"></video>
       <div style="position: relative; width: min(70vw, 70vh); aspect-ratio: 1; border: 3px solid rgba(255,255,255,.85); border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45);"></div>
       <div class="position-absolute bottom-0 w-100 p-3 d-flex flex-column gap-2 align-items-center" style="z-index: 1;">
-        <div class="text-white small text-center" data-msg>Point the camera at a spool label.</div>
+        <div class="text-white small text-center" data-msg></div>
         <button type="button" class="btn btn-light">Cancel</button>
       </div>`;
     document.body.append(overlay);
     const video = overlay.querySelector('video')!;
     const msg = overlay.querySelector<HTMLElement>('[data-msg]')!;
+    msg.textContent = opts.prompt ?? 'Point the camera at a spool label.';
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let done = false;
@@ -61,7 +68,7 @@ export function scanQr(): Promise<string | null> {
       video.srcObject = stream;
       await video.play();
 
-      const decode = await makeDecoder(video);
+      const decode = await makeDecoder(video, opts.formats ?? 'qr');
       const tick = async () => {
         if (done) return;
         try {
@@ -80,10 +87,11 @@ export function scanQr(): Promise<string | null> {
   });
 }
 
-async function makeDecoder(video: HTMLVideoElement): Promise<() => Promise<string | null>> {
+async function makeDecoder(video: HTMLVideoElement, formats: 'qr' | 'any'): Promise<() => Promise<string | null>> {
   const Ctor = (window as unknown as { BarcodeDetector?: DetectorCtor }).BarcodeDetector;
-  if (Ctor && (await Ctor.getSupportedFormats().catch((): string[] => [])).includes('qr_code')) {
-    const detector = new Ctor({ formats: ['qr_code'] });
+  const supported = Ctor ? await Ctor.getSupportedFormats().catch((): string[] => []) : [];
+  if (Ctor && supported.includes('qr_code')) {
+    const detector = new Ctor({ formats: formats === 'any' ? supported : ['qr_code'] });
     return async () => (await detector.detect(video))[0]?.rawValue ?? null;
   }
   const jsQR = (await import('jsqr')).default;

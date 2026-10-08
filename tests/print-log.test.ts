@@ -100,9 +100,9 @@ describe('toBuyList', () => {
   it('lists owned filaments below their threshold, most urgent first', () => {
     const d = doc();
     d.filaments.push(
-      { id: 'black', productLineId: 'l', color: 'Black', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', lowStockG: 2000 },
-      { id: 'white', productLineId: 'l', color: 'White', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', lowStockG: 1500 },
-      { id: 'red', productLineId: 'l', color: 'Red', finish: null, link: null, asin: null, acquisition: 'purchase', status: 'owned', lowStockG: 500 },
+      { id: 'black', productLineId: 'l', color: 'Black', finish: null, link: null, asin: null, status: 'owned', lowStockG: 2000 },
+      { id: 'white', productLineId: 'l', color: 'White', finish: null, link: null, asin: null, status: 'owned', lowStockG: 1500 },
+      { id: 'red', productLineId: 'l', color: 'Red', finish: null, link: null, asin: null, status: 'owned', lowStockG: 500 },
     );
     d.spools.push(spool('unknown', 'red', 'open', null));
     const list = toBuyList(d);

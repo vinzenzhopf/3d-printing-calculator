@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { activeFilaments } from '../../../core/catalog-cleanup';
-import { compareColors } from '../../../core/colors';
+import { compareColors, swatchBackground } from '../../../core/colors';
 import type { AppDocument, Filament } from '../../../core/model';
 import { stockByFilament, type FilamentStock } from '../../../core/stock';
 import { StoreController } from '../../../state/app-store';
@@ -79,9 +79,9 @@ export class FilamentColors extends LitElement {
     const line = doc.productLines.find((l) => l.id === f.productLineId);
     const hex = f.colorHex?.toUpperCase();
     return html`<div class="card h-100 overflow-hidden" title=${`${line ? lineLabel(line) : '?'} – ${f.color}`}>
-      <div class="color-swatch ${hex ? '' : 'color-swatch-unknown'}" style=${hex ? `background:${hex}` : ''}>${hex ? nothing : html`<span>no color set</span>`}</div>
+      <div class="color-swatch ${hex ? '' : 'color-swatch-unknown'}" style=${hex ? `background:${swatchBackground(f)}` : ''}>${hex ? nothing : html`<span>no color set</span>`}</div>
       <div class="card-body p-2 small">
-        <div class="font-monospace text-body-secondary">${hex ?? '–'}</div>
+        <div class="font-monospace text-body-secondary">${hex ?? '–'}${f.colorHex2 ? ` → ${f.colorHex2.toUpperCase()}` : ''}</div>
         <div class="fw-semibold text-truncate">${f.color}${f.finish ? html` <span class="fw-normal text-body-secondary">(${f.finish})</span>` : nothing}</div>
         <div class="text-truncate">${line ? lineLabel(line) : '?'}${line ? html` <span class="badge text-bg-light border">${line.baseMaterial}</span>` : nothing}</div>
         <div class="mt-1">${f.status === 'wishlist'

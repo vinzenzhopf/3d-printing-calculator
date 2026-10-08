@@ -24,7 +24,7 @@ export interface LotPrice {
  * `windowMonths` count fully; if they don't cover `needKg`, older purchases are
  * added newest-first, the last one only with the missing part. Returns the
  * kg-weighted €/kg, or undefined when there are no purchases at all.
- * Gifts/samples must not be passed in.
+ * Gifts/samples come in with their value, or not at all.
  */
 export function recentLotsPrice(
   lots: readonly PriceLot[],

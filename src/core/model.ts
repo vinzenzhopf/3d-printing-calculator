@@ -7,7 +7,7 @@
 
 import type { QuoteResult } from './calc/quote';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type Id = string;
 /** ISO date `YYYY-MM-DD`. */
@@ -192,10 +192,11 @@ export interface Filament {
   productLineId: Id;
   color: string;
   colorHex?: string;
+  /** Second color of a color-shift / dual-color / gradient filament. */
+  colorHex2?: string;
   finish: string | null;
   link: string | null;
   asin: string | null;
-  acquisition: 'purchase' | 'gift' | 'sample';
   status: 'owned' | 'wishlist';
   /** Price list entry for this color, overrides the product line's (FI-11). */
   manualPrice?: ManualPrice;
@@ -207,6 +208,8 @@ export interface Filament {
   successorId?: Id;
   /** Ids of duplicates merged into this one (FI-2b), so frozen quote snapshots still show a name. */
   mergedIds?: Id[];
+  /** Free text, e.g. print settings that work well. */
+  notes?: string;
 }
 
 /** One physical spool (FI-5). Its stock is the sum of its movements (FI-6). */
@@ -216,6 +219,8 @@ export interface Spool {
   purchaseId?: Id;
   /** Short label written on the spool, e.g. "S12". */
   label: string;
+  /** Labels it had before (e.g. on the wrapping of a sealed spool); scanning them still finds it. */
+  previousLabels?: string[];
   /** Net filament weight when new, grams. */
   nominalG: number;
   /** What kind of empty spool it is on (gives the empty weight). Unset = unknown. */
@@ -226,6 +231,9 @@ export interface Spool {
   location?: string;
   openedAt?: IsoDate;
   driedAt?: IsoDate;
+  /** The manufacturer's code on the spool, e.g. the Prusament QR link. */
+  code?: string;
+  note?: string;
   /** No movements = stock unknown (e.g. found on the shelf, not weighed yet). */
   movements: StockMovement[];
 }
@@ -255,6 +263,8 @@ export interface SpoolKind {
   /** Brand it comes with, for suggestions. null = generic. */
   manufacturer: string | null;
   emptyG: number;
+  /** Filament it holds when new, e.g. 2500 for a big spool: the default size of its spools. */
+  capacityG?: number;
   /** Where the weight comes from, e.g. "SpoolmanDB" or "measured 2026-10-06". */
   source: string;
 }
@@ -267,6 +277,10 @@ export interface FilamentPurchase {
   listingTitle?: string | null;
   asin?: string | null;
   filamentId: Id;
+  /** Unset = bought. Gifts and samples cost `totalPrice` (often 0, or just shipping). */
+  acquisition?: 'gift' | 'sample';
+  /** What a gift or sample is worth: used for the filament price instead of what was paid. */
+  value?: number;
   /** Empty spool its spools come on (e.g. refills with a cardboard inlay). Unset = suggested per spool. */
   kindId?: Id;
   /** Size of the pack as sold (e.g. 4 for a 4 x 1 kg bundle split into colors); defaults to packageWeightKg. */
