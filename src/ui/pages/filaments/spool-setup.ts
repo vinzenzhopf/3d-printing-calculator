@@ -8,6 +8,9 @@ import { store } from '../../../state/store-instance';
 import { cellNumber, cellText, numberField, selectField, switchField, textField, type Option } from '../../fields';
 import { newId, num } from '../../format';
 import { tell } from '../../dialogs';
+import { applyWeight } from '../../../core/spool-weights';
+import { pickSpoolWeight } from '../../spool-weight-dialog';
+import './spool-weight-suggestions';
 
 const CUSTOM = 'custom';
 
@@ -206,9 +209,20 @@ export class SpoolSetup extends LitElement {
             </tr>`)}
           </tbody>
         </table></div>
-        <div><button class="btn btn-sm btn-outline-primary" @click=${() => void this.#update((d) => d.spoolKinds.push({ id: newId(), name: 'New empty spool', manufacturer: null, emptyG: 200, source: 'entered by hand' }))}>+ Add empty spool</button></div>
+        <div><button class="btn btn-sm btn-outline-primary" title="Find it in SpoolmanDB and the Printables catalog, or enter it" @click=${() => void this.#addKind()}>+ Add empty spool…</button></div>
+        <h3 class="h6 mt-4">Known weights for unweighed spools</h3>
+        <spool-weight-suggestions></spool-weight-suggestions>
       </section>
     `;
+  }
+
+  async #addKind() {
+    const picked = await pickSpoolWeight();
+    if (!picked) return;
+    await this.#update((d) => {
+      if (picked === 'manual') d.spoolKinds.push({ id: newId(), name: 'New empty spool', manufacturer: null, emptyG: 200, source: 'entered by hand' });
+      else applyWeight(d, picked, [], newId);
+    });
   }
 
   async #deleteKind(k: SpoolKind, uses: number) {

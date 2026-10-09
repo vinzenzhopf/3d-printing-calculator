@@ -15,6 +15,7 @@ export interface SpoolmanFilament {
   density?: number | null;
   weight?: number | null;
   spool_weight?: number | null;
+  spool_type?: 'plastic' | 'cardboard' | 'metal' | null;
   diameter?: number | null;
   color_hex?: string | null;
   color_hexes?: string[] | null;
@@ -38,14 +39,16 @@ const norm = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/
  * found in the line name (PLA+ rather than PLA), same diameter. One per color,
  * the 1 kg variant preferred.
  */
-export function lineEntries(db: readonly SpoolmanFilament[], line: ProductLine): SpoolmanFilament[] {
+/** A brand name from outside ("Prusament", "Sunlu") is the line's brand, also when it is only in the line name. */
+export function brandFits(brandName: string, line: Pick<ProductLine, 'manufacturer' | 'name'>): boolean {
+  const m = norm(brandName);
   const brand = norm(line.manufacturer);
-  const lineText = norm(`${line.manufacturer} ${line.name}`);
+  return !!m && !!brand && (m === brand || brand.startsWith(m) || m.startsWith(brand) || norm(`${line.manufacturer} ${line.name}`).includes(m));
+}
+
+export function lineEntries(db: readonly SpoolmanFilament[], line: ProductLine): SpoolmanFilament[] {
   const lineName = norm(line.name);
-  const sameBrand = db.filter((e) => {
-    const m = norm(e.manufacturer);
-    return m && (m === brand || brand.startsWith(m) || m.startsWith(brand) || lineText.includes(m));
-  });
+  const sameBrand = db.filter((e) => brandFits(e.manufacturer, line));
   const materialFits = (e: SpoolmanFilament) => {
     const m = norm(e.material);
     return lineName.includes(m) || m === norm(line.baseMaterial);

@@ -10,6 +10,8 @@ import { store } from '../../state/store-instance';
 import { pickFilament } from '../filament-picker';
 import { scanAndOpen, scanQr } from '../qr-scanner';
 import { applyColor, colorButton } from '../color-dialog';
+import { pickSpoolWeight } from '../spool-weight-dialog';
+import { applyWeight } from '../../core/spool-weights';
 import { cellNumber, cellSelect, cellText, switchField } from '../fields';
 import { money, newId, num, today } from '../format';
 import { SPOOL_STATUS, filamentLabel, kindOptions, swatch, tareText } from './filaments/labels';
@@ -119,7 +121,7 @@ export class SpoolPage extends LitElement {
           <button class="btn btn-sm btn-link p-0" @click=${() => (this.kindEditing = !this.kindEditing)}>${this.kindEditing ? 'Close' : 'Change / edit'}</button>
         </div>
         ${this.kindEditing
-          ? this.#kindEditor(s.kindId ?? '', s.filamentId, (id) => void this.#store.store.update((d) => { const x = d.spools.find((y) => y.id === s.id)!; if (id) x.kindId = id; else delete x.kindId; }))
+          ? this.#kindEditor(s.kindId ?? '', s.filamentId, s.nominalG, (id) => void this.#store.store.update((d) => { const x = d.spools.find((y) => y.id === s.id)!; if (id) x.kindId = id; else delete x.kindId; }))
           : nothing}
         ${switchField('This is the empty spool', this.isEmptySpool, (v) => (this.isEmptySpool = v), { help: 'Marks it empty and stores the weight as its empty weight.' })}
         ${this.isEmptySpool && tare.kind ? switchField(`Also use as the weight of all "${tare.kind.name}" spools`, this.saveAsPreset, (v) => (this.saveAsPreset = v)) : nothing}
@@ -227,20 +229,25 @@ export class SpoolPage extends LitElement {
    * Empty spool choice with an inline editor: change the kind's name, brand,
    * weight and size (for all spools of that kind), or add a new one.
    */
-  #kindEditor(kindId: string, filamentId: string, select: (id: string) => void) {
+  #kindEditor(kindId: string, filamentId: string, sizeG: number, select: (id: string) => void) {
     const doc = this.#doc;
     const kind = doc.spoolKinds.find((k) => k.id === kindId);
     const uses = kind ? doc.spools.filter((x) => x.kindId === kind.id).length : 0;
     const setKind = (mutate: (k: SpoolKind) => void) => void this.#store.store.update((d) => mutate(d.spoolKinds.find((k) => k.id === kindId)!));
     const add = async () => {
-      const id = newId();
       const line = doc.productLines.find((l) => l.id === doc.filaments.find((f) => f.id === filamentId)?.productLineId);
-      await this.#store.store.update((d) => d.spoolKinds.push({ id, name: 'New empty spool', manufacturer: line?.manufacturer ?? null, emptyG: 200, source: 'entered by hand' }));
+      const picked = await pickSpoolWeight({ brand: line?.manufacturer, lineName: line?.name, sizeG });
+      if (!picked) return;
+      let id = newId();
+      await this.#store.store.update((d) => {
+        if (picked === 'manual') d.spoolKinds.push({ id, name: 'New empty spool', manufacturer: line?.manufacturer ?? null, emptyG: 200, source: 'entered by hand' });
+        else id = applyWeight(d, picked, [], () => id);
+      });
       select(id);
     };
     return html`<div class="border rounded p-2 mb-2 bg-body-tertiary">
       <div class="d-flex gap-1 mb-2">${cellSelect(kindId, kindOptions(doc, 'Unknown', filamentId), select, true, 'Empty spool')}
-        <button class="btn btn-sm btn-outline-primary text-nowrap" @click=${add}>+ New</button></div>
+        <button class="btn btn-sm btn-outline-primary text-nowrap" title="Find it in SpoolmanDB and the Printables catalog, or enter it" @click=${add}>+ New…</button></div>
       ${kind
         ? html`<div class="row g-2">
             <div class="col-12 col-sm-6"><label class="small d-block">Name${cellText(kind.name, (v) => v && setKind((k) => (k.name = v)), { title: 'Name', placeholder: 'e.g. Plastic + cardboard' })}</label></div>
@@ -340,7 +347,7 @@ export class SpoolPage extends LitElement {
           <div class="col-6"><label class="small d-block">Size (g)${cellNumber(ns.nominalG, (v) => set({ nominalG: v ?? 1000 }), { min: 0, step: 1, title: 'Nominal grams' })}</label></div>
           <div class="col-6"><label class="small d-block">Empty spool${cellSelect(ns.kindId, kindOptions(doc, 'Unknown', ns.filamentId), (v) => set({ kindId: v, ...sizeOf(doc, v) }), true, 'Empty spool')}</label>
             <button class="btn btn-sm btn-link p-0" ?disabled=${!ns.filamentId} @click=${() => (this.kindEditing = !this.kindEditing)}>${this.kindEditing ? 'Close' : 'Edit / new empty spool'}</button></div>
-          ${this.kindEditing && ns.filamentId ? html`<div class="col-12">${this.#kindEditor(ns.kindId, ns.filamentId, (v) => set({ kindId: v, ...sizeOf(doc, v) }))}</div>` : nothing}
+          ${this.kindEditing && ns.filamentId ? html`<div class="col-12">${this.#kindEditor(ns.kindId, ns.filamentId, ns.nominalG, (v) => set({ kindId: v, ...sizeOf(doc, v) }))}</div>` : nothing}
           ${ns.filamentId
             ? html`<div class="col-12"><label class="small d-block">From purchase (optional)${this.#purchaseSelect(ns.filamentId, ns.purchaseId, (v) => { const p = doc.purchases.find((x) => x.id === v); set({ purchaseId: v, kindId: suggestKind(doc, ns.filamentId, v || undefined) ?? '', ...(p ? { nominalG: Math.round(spoolKgOf(p) * 1000) } : {}) }); })}</label></div>`
             : nothing}

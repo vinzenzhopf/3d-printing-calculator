@@ -14,6 +14,7 @@ import '../pricing-profiles-editor';
 import '../sync-settings';
 import './printers-page';
 import { ask, tell } from '../dialogs';
+import { PRINTABLES_SOURCE } from '../spool-weight-dialog';
 
 const TABS = [
   { sub: '', label: 'General' },
@@ -62,7 +63,7 @@ export class SettingsPage extends LitElement {
             </div>`
           : html`<div class="row g-3">
               <div class="col-lg-6">${this.#general(s)}</div>
-              <div class="col-lg-6">${this.#business(s)} ${this.#vat(s)}</div>
+              <div class="col-lg-6">${this.#business(s)} ${this.#vat(s)} ${this.#thirdParty(s)}</div>
             </div>`}
     `;
   }
@@ -91,6 +92,26 @@ export class SettingsPage extends LitElement {
         ${textField('Currency', s.currency, (v) => this.#set((x) => (x.currency = v.toUpperCase())), {
           help: 'ISO code, e.g. EUR, USD, CHF.',
         })}
+      </section>
+    `;
+  }
+
+  #thirdParty(s: Settings) {
+    return html`
+      <section class="card card-body mt-3">
+        <h2 class="h5 mb-3">Third-party data</h2>
+        <p class="small mb-2">
+          Empty spool weights come from <a href="https://github.com/Donkie/SpoolmanDB" target="_blank" rel="noopener">SpoolmanDB</a> (MIT).
+          The <a href=${PRINTABLES_SOURCE.url} target="_blank" rel="noopener">${PRINTABLES_SOURCE.title}</a> by ${PRINTABLES_SOURCE.author}
+          adds about 220 more, but its license (<a href=${PRINTABLES_SOURCE.licenseUrl} target="_blank" rel="noopener">${PRINTABLES_SOURCE.license}</a>)
+          allows non-commercial use only.
+        </p>
+        ${switchField('I use the Printables catalog only for personal, non-commercial purposes', !!s.printablesCatalogPersonalUse,
+          (v) => this.#set((x) => (v ? (x.printablesCatalogPersonalUse = true) : delete x.printablesCatalogPersonalUse)),
+          { help: 'Only then is the catalog loaded and offered when picking an empty spool.' })}
+        ${s.printablesCatalogPersonalUse && s.businessMode
+          ? html`<div class="alert alert-warning small mb-0 mt-2">Business mode is on. Weights from the catalog that are already on your empty spools stay; switch this off if you use the app commercially.</div>`
+          : nothing}
       </section>
     `;
   }

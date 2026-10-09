@@ -90,4 +90,11 @@ Please add the version from **Settings → Data & sync → About**.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE), except for third-party data:
+
+- [`src/third-party/printables-spool-weights.json`](src/third-party/printables-spool-weights.json): empty spool weights
+  from the [Empty Spool Weight Catalog](https://www.printables.com/model/464663-empty-spool-weight-catalog) by Scuk,
+  licensed [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), converted to JSON. **Commercial use of
+  this data is not allowed.** The app only loads it after you confirm non-commercial use in Settings → General →
+  Third-party data.
+- [SpoolmanDB](https://github.com/Donkie/SpoolmanDB) (MIT) is loaded on demand, not included.

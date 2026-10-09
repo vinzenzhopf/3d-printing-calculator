@@ -84,6 +84,11 @@ export interface Settings {
   /** Business mode shows business details and numbering on quotes (PP-4). */
   businessMode: boolean;
   business: { name: string; address: string; email: string };
+  /**
+   * The owner confirmed using the Printables spool weight catalog (CC BY-NC-SA)
+   * only non-commercially; without it the catalog is not loaded.
+   */
+  printablesCatalogPersonalUse?: boolean;
   /** Demo data (core/demo) is loaded: shown with a banner and never synced. */
   demo?: boolean;
   vat: VatSettings;
